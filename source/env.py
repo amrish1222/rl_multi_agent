@@ -225,6 +225,10 @@ class Env:
         cv2.waitKey(1)
     
     def get_reward(self, current_map):
-        # TODO reward calculations
-        reward = 0
-        return reward
+
+        #sum up reward on all free pixels
+        actualR = np.where((current_map<= 0), current_map, 0)
+        curSumR = np.sum(actualR)
+
+
+        return curSumR

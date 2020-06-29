@@ -21,15 +21,21 @@ np.set_printoptions(precision=3, suppress=True)
 class Env:
     def __init__(self):
         self.timeStep = CONST.TIME_STEP
-        
         # getting obstacle maps and visibility maps
         self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.initObsMaps_Vsbs()
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
-        
+
         # initialize environment with obstacles and agents
         self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(CONST.NUM_AGENTS, self.obstacle_map)
+        # modified: decay rate:
+        self.decay= 1
+        # modified: cap the upperbound of penalty
+        self.cap= 400
 
-        
+
+
+
+
     
     def init_env(self, num_agents, obstacle_map):
         # unviewed = 0
@@ -50,35 +56,32 @@ class Env:
         for ndx in ndxs[:num_agents]:
             agents.append(Agent(x[ndx]+0.5, y[ndx]+0.5))
 #            agents.append(Agent())
-        
+
         agent_pos_list = [agent.getState()[0] for agent in agents]
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
-                   
+
         # update visibility for initial position
         for agent_pos, agent_g_pos in zip(agent_pos_list, agent_g_pos_list):
             obstacle_viewed, temp = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos,obstacle_viewed, self.vsbPoly)
             agents_local_view_list.append(temp)
-            
+
         current_map_state = self.update_map_at_pos(agent_g_pos_list, obstacle_viewed, 100)
-        
         
         return obstacle_viewed, current_map_state, agents, agents_local_view_list
 
-    
     def initObsMaps_Vsbs(self):
         return obsMap.getAllObs_vsbs(np.zeros((CONST.MAP_SIZE, CONST.MAP_SIZE)))
-    
+
     def setRandMap_vsb(self):
         i = random.randint(0, len(self.obsMaps)-1)
         return self.obsMaps[i], self.vsbs[i], self.vsbPolys[i], self.numOpenCellsArr[i], i
-    
+
     def cartesian2grid(self, pos):
         g_pos = np.floor(pos).astype(np.int)
         return g_pos
-    
+
     def is_valid_location(self, pos, valid_map):
         g_pos = self.cartesian2grid(pos)
-        
         # range check
         if 0 <= g_pos[0] < valid_map.shape[0] and 0<= g_pos[1] < valid_map.shape[1]:
             pass
@@ -89,6 +92,7 @@ class Env:
             return True
         else:
             return False
+
     
     def update_map_at_pos(self, g_pos, use_map, val):
         updated_map = np.copy(use_map)
@@ -101,10 +105,9 @@ class Env:
         # waypoints or velocity
         posOut = []
         velOut = []
-        
         agent_pos_list = [agent.getState()[0] for agent in self.agents]
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
-        
+
         for agent, action in zip(self.agents, action_list):
             vel = np.array([0,0])
             if action == 0:
@@ -124,7 +127,6 @@ class Env:
             agent_g_pos_list = self.cartesian2grid(agent_pos_list)
             obstacle_map_with_agents = self.update_map_at_pos(agent_g_pos_list, self.obstacle_map, 100)
             isValidPt = self.is_valid_location(predNewState, obstacle_map_with_agents)
-            
             if isValidPt:
                 agent.updateState(self.timeStep)
                 curState = agent.getState()
@@ -139,10 +141,27 @@ class Env:
     def step(self, action_list):
         agent_pos_list, agent_vel_list = self.step_agent(action_list)
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
-        
+
         for indx, agent_pos in enumerate(agent_pos_list):
             self.obstacle_viewed, self.agent_local_view_list[indx] = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.obstacle_viewed, self.vsbPoly)
-            
+
+        # Genearete currentStateMap with decay reward:
+
+        # 150 is the wall, 255 (->0) (is newly viewed), initial unviewed is 0,  all pixels except wall is < 0, agent 100
+
+
+        # If pixel <= 0 (not wall (150), agent (100), current viewed (255->0)) decrease by decay rate
+        self.current_map_state = np.where((self.current_map_state <= 0), self.current_map_state - self.decay,
+                                            self.current_map_state)
+
+        # set current under viewed pixels(255) to 0, after decay complete
+        self.current_map_state = np.where((self.current_map_state == 255), 0, self.current_map_state)
+
+        # apply the lowerbound cap for the penalty
+        self.current_map_state = np.where((self.current_map_state < (-1 * self.cap)), -1 * self.cap,
+                                            self.current_map_state)
+
+
         # update position to get current full map
         self.current_map_state = self.update_map_at_pos(agent_g_pos_list, self.obstacle_viewed, 100)
         

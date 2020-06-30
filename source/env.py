@@ -143,7 +143,7 @@ class Env:
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
 
         for indx, agent_pos in enumerate(agent_pos_list):
-            self.obstacle_viewed, self.agent_local_view_list[indx] = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.obstacle_viewed, self.vsbPoly)
+            self.current_map_state, self.agent_local_view_list[indx] = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.current_map_state, self.vsbPoly)
 
         # Genearete currentStateMap with decay reward:
 
@@ -163,7 +163,8 @@ class Env:
 
 
         # update position to get current full map
-        self.current_map_state = self.update_map_at_pos(agent_g_pos_list, self.obstacle_viewed, 100)
+        self.current_map_state = self.update_map_at_pos(agent_g_pos_list, self.current_map_state, 100)
+
         
         reward = self.get_reward(self.current_map_state)
         
@@ -183,20 +184,25 @@ class Env:
         return state
     
     def render(self):
+        cap = self.cap
+
         img = np.copy(self.current_map_state)
-        img = np.rot90(img,1)
-        r = np.where(img==150, 255, 0)
-        g = np.where(img==100, 255, 0)
-        
-        b = np.zeros_like(img)
-        b_n = np.where(img==255, 100, 0)
-        bgr = np.stack((b,g,r),axis = 2)
-        bgr[:,:,0] = b_n
-        
-        
-        displayImg = cv2.resize(bgr,(700,700),interpolation = cv2.INTER_AREA)
-        
-        cv2.imshow("Position Map", displayImg)
+
+        reward_map = img
+
+        """ initialize heatmap """
+        heatmap = cv2.resize(reward_map, (700, 700), interpolation=cv2.INTER_AREA)
+        heatmapshow = np.rot90(heatmap, 1)
+
+        heatmapshow = np.where(heatmapshow == 150, 20, heatmapshow)
+        heatmapshow = np.where(heatmapshow < 0, -1 * heatmapshow * 255 / cap, -1 * heatmapshow)
+        heatmapshow = np.where(heatmapshow >= self.cap, 255, heatmapshow)
+
+        heatmapshow = heatmapshow.astype(np.uint8)
+
+        heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+
+        cv2.imshow("heatMap", heatmapshow)
         
         agent_views_list = []
         for agent_indx, local_view in enumerate(self.agent_local_view_list):

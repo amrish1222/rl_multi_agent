@@ -14,10 +14,10 @@ class CONSTANTS:
         self.TIME_STEP=1
         
         
-        self.NUM_AGENTS = 20
+        self.NUM_AGENTS = 4
         
-        self.RENDER_ROWS = 5
-        self.RENDER_COLUMNS = 4
+        self.RENDER_ROWS = 2
+        self.RENDER_COLUMNS = 2
         
         self.MAX_AGENT_VEL= 1   
         

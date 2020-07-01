@@ -67,6 +67,8 @@ class Env:
 
         current_map_state = self.update_map_at_pos(agent_g_pos_list, obstacle_viewed, 100)
         
+        self.local_heatmap_list = self.get_local_heatmap_list(current_map_state, agent_g_pos_list)
+        
         return obstacle_viewed, current_map_state, agents, agents_local_view_list
 
     def initObsMaps_Vsbs(self):
@@ -164,7 +166,8 @@ class Env:
 
         # update position to get current full map
         self.current_map_state = self.update_map_at_pos(agent_g_pos_list, self.current_map_state, 100)
-
+        
+        self.local_heatmap_list = self.get_local_heatmap_list(self.current_map_state, agent_g_pos_list)
         
         reward = self.get_reward(self.current_map_state)
         
@@ -183,15 +186,8 @@ class Env:
         
         return state
     
-    def render(self):
+    def heatmap_render_prep(self, heatmap):
         cap = self.cap
-
-        img = np.copy(self.current_map_state)
-
-        reward_map = img
-
-        """ initialize heatmap """
-        heatmap = cv2.resize(reward_map, (700, 700), interpolation=cv2.INTER_AREA)
         heatmapshow = np.rot90(heatmap, 1)
 
         heatmapshow = np.where(heatmapshow == 150, 20, heatmapshow)
@@ -201,21 +197,47 @@ class Env:
         heatmapshow = heatmapshow.astype(np.uint8)
 
         heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+        
+        return heatmapshow
+    
+    def exploration_render_prep(self, explr_map):
+        img = np.copy(explr_map)
+        img = np.rot90(img,1)
+        r = np.where(img==150, 255, 0)
+        g = np.where(img==100, 255, 0)
+        
+        b = np.zeros_like(img)
+        b_n = np.where(img==255, 100, 0)
+        bgr = np.stack((b,g,r),axis = 2)
+        bgr[:,:,0] = b_n
+        return bgr
+    
+    def render(self):
 
-        cv2.imshow("heatMap", heatmapshow)
+        img = np.copy(self.current_map_state)
+
+        reward_map = img
+
+        """ initialize heatmap """
+        
+        full_heatmap = self.heatmap_render_prep(reward_map)
+        full_heatmap = cv2.resize(full_heatmap,(700,700),interpolation = cv2.INTER_AREA)
+        cv2.imshow("heatMap", full_heatmap)
         
         agent_views_list = []
-        for agent_indx, local_view in enumerate(self.agent_local_view_list):
-            img = np.copy(local_view)
-            img = np.rot90(img,1)
-            r = np.where(img==150, 255, 0)
-            g = np.where(img==100, 255, 0)
+# =============================================================================
+#         for agent_indx, local_view in enumerate(self.agent_local_view_list):
+#             
+#             temp = self.exploration_render_prep(local_view)
+#             
+#             agent_views_list.append(temp)
+# =============================================================================
+        
+        for agent_indx, local_view in enumerate(self.local_heatmap_list):
             
-            b = np.zeros_like(img)
-            b_n = np.where(img==255, 100, 0)
-            bgr = np.stack((b,g,r),axis = 2)
-            bgr[:,:,0] = b_n
-            agent_views_list.append(bgr)
+            temp = self.heatmap_render_prep(local_view)
+            
+            agent_views_list.append(temp)
         
         rows = []
         for j in range(CONST.RENDER_ROWS):
@@ -238,3 +260,27 @@ class Env:
 
 
         return curSumR
+    
+    def get_local_heatmap_list(self, current_map, agent_g_pos_list):
+        local_heatmap_list = []
+        for g in agent_g_pos_list:
+            r = int((CONST.LOCAL_SZ -1) /2)
+            lx = int(max(0, g[1] - r))
+            hx = int(min(CONST.MAP_SIZE, r + g[1] + 1))
+            ly = int(max(0, g[0] - r))
+            hy = int(min(CONST.MAP_SIZE, r + g[0] + 1))
+            tempMask = np.zeros_like(current_map)
+            tempMask[lx: hx , ly : hy] = 1
+            
+            local_view = np.ones((CONST.LOCAL_SZ,CONST.LOCAL_SZ)) * 150
+            
+            llx = int(lx - (g[1] - r))
+            hhx = int(hx - g[1] + r)
+            
+            lly = int(ly - (g[0] - r))
+            hhy = int(hy - g[0] + r)
+            
+            local_view[llx: hhx, lly: hhy] = current_map.T[lx: hx , ly : hy]
+            local_heatmap_list.append(local_view.T)
+        return local_heatmap_list
+        

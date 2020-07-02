@@ -7,26 +7,26 @@ from torch.distributions import Categorical
 from statistics import mean
 from torch.utils.tensorboard import SummaryWriter
 import random
-
+from collections import defaultdict
+import itertools
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Memory:
-    def __init__(self):
-        self.actions = []
-        self.states1 = []
-        self.states2 = []
-        self.logprobs = []
-        self.rewards = []
-        self.is_terminals = []
+    def __init__(self, num_agents):
+        self.actions = defaultdict(list)
+        self.states = defaultdict(list)
+        self.logprobs = defaultdict(list)
+        self.rewards = defaultdict(list)
+        self.is_terminals = defaultdict(list)
+        self.num_agents = num_agents
     
     def clear_memory(self):
-        del self.actions[:]
-        del self.states1[:]
-        del self.states2[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
+        self.actions.clear()
+        self.states.clear()
+        self.logprobs.clear()
+        self.rewards.clear()
+        self.is_terminals.clear()
 
 class ActorCritic(nn.Module):
     def __init__(self, env):
@@ -34,7 +34,7 @@ class ActorCritic(nn.Module):
 
         # actor
         self.feature1 = nn.Sequential(
-                    nn.Conv2d(3,16,(3,3),1,1),
+                    nn.Conv2d(1,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -49,31 +49,17 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg1 = nn.Sequential(
-                    nn.Linear(6*6*32 + 2, 500),
+                    nn.Linear(3*3*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
-                    nn.Linear(256, len(env.getActionSpace())),
+                    nn.Linear(256, len(env.get_action_space())),
                     nn.Softmax(dim=-1)
                 )
         
-#        self.action_layer = nn.Sequential(
-#                    nn.Conv2d(1,16,(8,8),4,1),
-#                    nn.ReLU(),
-#                    nn.Conv2d(16,32,(4,4),2,1),
-#                    nn.ReLU(),
-#                    nn.Conv2d(32,32,(3,3),1,1),
-#                    nn.ReLU(),
-#                    nn.Flatten(),
-#                    nn.Linear(6*6*32, 256),
-#                    nn.ReLU(),
-#                    nn.Linear(256, len(env.getActionSpace())),
-#                    nn.Softmax(dim=-1)
-#                )
-        
         # critic
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(3,16,(3,3),1,1),
+                    nn.Conv2d(1,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -88,67 +74,53 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg2 = nn.Sequential(
-                    nn.Linear(6*6*32 + 2, 500),
+                    nn.Linear(3*3*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
                     nn.Linear(256, 1)
                 )
-        
-#        self.value_layer = nn.Sequential(
-#                    nn.Conv2d(1,16,8,4,1),
-#                    nn.ReLU(),
-#                    nn.Conv2d(16,32,4,2,1),
-#                    nn.ReLU(),
-#                    nn.Conv2d(32,32,3,1,1),
-#                    nn.ReLU(),
-#                    nn.Flatten(),
-#                    nn.Linear(6*6*32, 256),
-#                    nn.ReLU(),
-#                    nn.Linear(256, 1)
-#                )
 
         self.train()
         
-    def action_layer(self, x1, x2):
+    def action_layer(self, x1):
         x = self.feature1(x1)
-        x = torch.cat((x,x2), dim = 1)
+#        x = torch.cat((x,x2), dim = 1)
         x = self.reg1(x)
         return x
     
-    def value_layer(self, x1, x2):
+    def value_layer(self, x1):
         x = self.feature2(x1)
-        x = torch.cat((x,x2), dim = 1)
+#        x = torch.cat((x,x2), dim = 1)
         x = self.reg2(x)
         return x
         
     def forward(self):
         raise NotImplementedError
         
-    def act(self, state, memory):
+    def act(self, state, memory, agent_index):
         with torch.no_grad():
-            state1 = torch.from_numpy(state[0]).float().to(device)
-            state2 = torch.from_numpy(state[1]).float().to(device)
-            action_probs = self.action_layer(state1.unsqueeze(0), state2.unsqueeze(0))
+            state = torch.from_numpy(state).float().to(device)
+            save_state = state.unsqueeze(0)
+            action_probs = self.action_layer(save_state.unsqueeze(0))
             dist = Categorical(action_probs)
             action = dist.sample()
             
-            memory.states1.append(state1)
-            memory.states2.append(state2)
-            memory.actions.append(action)
-            memory.logprobs.append(dist.log_prob(action))
+            memory.states[agent_index].append(save_state)
+            memory.actions[agent_index].append(action)
+            memory.logprobs[agent_index].append(dist.log_prob(action))
         
         return action.item()
     
     def evaluate(self, state, action):
-        action_probs = self.action_layer(*state)
+        action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
         
         action_logprobs = torch.diag(dist.log_prob(action))
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
         
-        state_value = self.value_layer(*state)
+        state_value = self.value_layer(state)
         
         return action_logprobs, torch.squeeze(state_value), dist_entropy
         
@@ -175,11 +147,12 @@ class PPO:
         # Monte Carlo estimate of state rewards:
         all_rewards = []
         discounted_reward = 0
-        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
-            if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            all_rewards.insert(0, discounted_reward)
+        for i in reversed(range(memory.num_agents)):
+            for reward, is_terminal in zip(reversed(memory.rewards[i]), reversed(memory.is_terminals[i])):
+                if is_terminal:
+                    discounted_reward = 0
+                discounted_reward = reward + (self.gamma * discounted_reward)
+                all_rewards.insert(0, discounted_reward)
         
         # Normalizing the rewards:
 #        all_rewards = torch.tensor(all_rewards).to(device)
@@ -188,23 +161,31 @@ class PPO:
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
         
-        minibatch_sz = 500
-        mem_sz = len(memory.states1)
+        minibatch_sz = 1000
+        
+        # concatenate all the states, actions, logprobs
+        temp_states = []
+        temp_actions = []
+        temp_logprobs = []
+        for i in range(memory.num_agents):
+            temp_states += memory.states[i]
+            temp_actions += memory.actions[i]
+            temp_logprobs += memory.logprobs[i]
+            
+        mem_sz = len(temp_states)
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             prev = 0
             for i in range(minibatch_sz, mem_sz+1, minibatch_sz):
                 
 #                print(prev,i, minibatch_sz, mem_sz)
-                mini_old_states1 = memory.states1[prev:i]
-                mini_old_states2 = memory.states2[prev:i]
-                mini_old_actions = memory.actions[prev:i]
-                mini_old_logprobs = memory.logprobs[prev:i]
+                mini_old_states = temp_states[prev:i]
+                mini_old_actions = temp_actions[prev:i]
+                mini_old_logprobs = temp_logprobs[prev:i]
                 mini_rewards = all_rewards[prev:i]
                 
                 # convert list to tensor
-                old_states1 = torch.stack(mini_old_states1).to(device).detach()
-                old_states2 = torch.stack(mini_old_states2).to(device).detach()
+                old_states = torch.stack(mini_old_states).to(device).detach()
                 old_actions = torch.stack(mini_old_actions).to(device).detach()
                 old_logprobs = torch.stack(mini_old_logprobs).to(device).detach()
                 rewards = torch.from_numpy(mini_rewards).float().to(device)
@@ -212,7 +193,7 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
-                logprobs, state_values, dist_entropy = self.policy.evaluate((old_states1, old_states2), old_actions)
+                logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs - old_logprobs.detach())
                     
@@ -234,21 +215,14 @@ class PPO:
         return advantages.mean().item()
         
     def formatInput(self, states):
-        out = []
-#        for state in states:
-#            out.append(np.concatenate((state[0], state[1].flatten())))
-        for state in states:
-            display = state[2]
-            # single adversary position
-            relativePos = state[1][0] - state[0][0]
-            out.append([display, relativePos])
-        return out
+
+        return states[2]
     
     def summaryWriter_showNetwork(self, curr_state):
         X = torch.tensor(list(curr_state)).to(self.device)
         self.sw.add_graph(self.model, X, False)
     
-    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, mapRwdDict, lenEpisode):
+    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, lenEpisode):
         if loss:
             self.sw.add_scalar('6.Loss', loss, episode)
         self.sw.add_scalar('3.Reward', rewardHistory[-1], episode)
@@ -260,17 +234,17 @@ class PPO:
         else:    
             avg_reward = mean(rewardHistory) 
         self.sw.add_scalar('1.Average of Last 100 episodes', avg_reward, episode)
-        
-        for item in mapRwdDict:
-            title ='4. Map ' + str(item + 1)
-            if len(mapRwdDict[item]) >= 100:
-                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed=  zip(*mapRwdDict[item][-100:])
-            else:
-                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed =  zip(*mapRwdDict[item])
-            avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed = mean(avg_mapReward), mean(avg_newArea), mean(avg_penalty), mean(avg_totalViewed)
-
-            self.sw.add_scalars(title,{'Total Reward':avg_mapReward,'New Area':avg_newArea,'Penalty': avg_penalty, 'Total Viewed': avg_totalViewed}, len(mapRwdDict[item])-1)
-            
+#        
+#        for item in mapRwdDict:
+#            title ='4. Map ' + str(item + 1)
+#            if len(mapRwdDict[item]) >= 100:
+#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed=  zip(*mapRwdDict[item][-100:])
+#            else:
+#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed =  zip(*mapRwdDict[item])
+#            avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed = mean(avg_mapReward), mean(avg_newArea), mean(avg_penalty), mean(avg_totalViewed)
+#
+#            self.sw.add_scalars(title,{'Total Reward':avg_mapReward,'New Area':avg_newArea,'Penalty': avg_penalty, 'Total Viewed': avg_totalViewed}, len(mapRwdDict[item])-1)
+#            
     def summaryWriter_close(self):
         self.sw.close()
         

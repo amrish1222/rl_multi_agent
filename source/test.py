@@ -33,8 +33,8 @@ def getKeyPress():
 
 env = Env()
 
-NUM_EPISODES = 1000
-LEN_EPISODES = 10000
+NUM_EPISODES = 100
+LEN_EPISODES = 1000
 
 act = 0 
 
@@ -45,11 +45,11 @@ for episode in tqdm(range(NUM_EPISODES)):
         # step agent
         actions = []
         for i in range(CONST.NUM_AGENTS):
-            if i == 0:
-                actions.append(getKeyPress())
-            else:
-                actions.append(0)
-#            actions.append(rand.randint(0,4))
+#            if i == 0:
+#                actions.append(getKeyPress())
+#            else:
+#                actions.append(0)
+            actions.append(rand.randint(0,4))
         pos_list, _, local_view_list, reward, done = env.step(actions)
         env.render()
         if done:

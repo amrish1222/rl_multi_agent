@@ -5,8 +5,6 @@
 
 import numpy as np
 import random
-import copy
-import math
 import cv2
 
 from constants import CONSTANTS as K
@@ -14,8 +12,6 @@ CONST = K()
 from agent import Agent
 from obstacle import Obstacle
 obsMap = Obstacle()
-
-from agent import Agent as Adversary
 
 np.set_printoptions(precision=3, suppress=True)
 class Env:
@@ -62,8 +58,8 @@ class Env:
 
         # update visibility for initial position
         for agent_pos, agent_g_pos in zip(agent_pos_list, agent_g_pos_list):
-            obstacle_viewed, temp = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos,obstacle_viewed, self.vsbPoly)
-            agents_local_view_list.append(temp)
+            obstacle_viewed = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos,obstacle_viewed, self.vsbPoly)
+#            agents_local_view_list.append(temp)
 
         current_map_state = self.update_map_at_pos(agent_g_pos_list, obstacle_viewed, 100)
         
@@ -140,13 +136,18 @@ class Env:
                 velOut.append(curState[1])
         return posOut, velOut
     
+    def get_action_space(self):
+        return [0,1,2,3,4]
+    
     def step(self, action_list):
         agent_pos_list, agent_vel_list = self.step_agent(action_list)
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
 
         for indx, agent_pos in enumerate(agent_pos_list):
-            self.current_map_state, self.agent_local_view_list[indx] = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.current_map_state, self.vsbPoly)
-
+            self.current_map_state = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.current_map_state, self.vsbPoly)
+        
+#        # TODO local view with only visibility
+#        self.agent_local_view_list[indx]
         # Genearete currentStateMap with decay reward:
 
         # 150 is the wall, 255 (->0) (is newly viewed), initial unviewed is 0,  all pixels except wall is < 0, agent 100
@@ -173,7 +174,7 @@ class Env:
         
         done = False
         
-        return agent_pos_list, self.current_map_state, self.agent_local_view_list, reward, done
+        return agent_pos_list, self.current_map_state, self.local_heatmap_list, reward, done
     
     def reset(self):
         
@@ -245,7 +246,7 @@ class Env:
         
         agent_views = np.vstack((rows))
         
-        displayImg = cv2.resize(agent_views,(CONST.RENDER_COLUMNS* 100,CONST.RENDER_ROWS*100),interpolation = cv2.INTER_AREA)
+        displayImg = cv2.resize(agent_views,(CONST.RENDER_COLUMNS* 200,CONST.RENDER_ROWS*200),interpolation = cv2.INTER_AREA)
         
 #        displayImg = cv2.resize(agent_views_list[0],(200,200),interpolation = cv2.INTER_AREA)
         cv2.imshow("Agent Views", displayImg)

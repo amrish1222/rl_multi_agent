@@ -214,22 +214,11 @@ class Visibility:
         tempMask = np.zeros_like(mask)
         tempMask[lx: hx , ly : hy] = 1
         
-        local_view = np.ones((CONST.LOCAL_SZ,CONST.LOCAL_SZ)) * 150
-        
-        llx = int(lx - (g[1] - r))
-        hhx = int(hx - g[1] + r)
-        
-        lly = int(ly - (g[0] - r))
-        hhy = int(hy - g[0] + r)
-
-        local_view[llx: hhx, lly: hhy] = np.where(img.T[lx: hx , ly : hy] == 150, 150, 0)
-        local_view[llx: hhx, lly: hhy] = np.where(mask[lx: hx , ly : hy], 255, local_view[llx: hhx, lly: hhy])
-        local_view[r,r] = 100
         mask = np.where(tempMask==0, False, mask)
         vsbGrid = mask.T
 
         temp = np.where(vsbGrid, 255, img)
 
-        return temp, local_view.T
+        return temp
         
         

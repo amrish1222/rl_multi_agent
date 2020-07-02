@@ -29,6 +29,11 @@ class Env:
         self.cap= 400
 
 
+        #save video
+        self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.out = cv2.VideoWriter(f"checkpoints/cnn1.avi", self.fourcc, 50, (700, 700))
+
+
 
 
 
@@ -284,4 +289,19 @@ class Env:
             local_view[llx: hhx, lly: hhy] = current_map.T[lx: hx , ly : hy]
             local_heatmap_list.append(local_view.T)
         return local_heatmap_list
+
+
+    def save2Vid(self):
+
+        img = np.copy(self.current_map_state)
+
+        reward_map = img
+
+        """ initialize heatmap """
+
+        full_heatmap = self.heatmap_render_prep(reward_map)
+        full_heatmap = cv2.resize(full_heatmap, (700, 700), interpolation=cv2.INTER_AREA)
+
+        self.out.write(full_heatmap.astype('uint8'))
+
         

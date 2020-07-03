@@ -291,7 +291,7 @@ class Env:
         return local_heatmap_list
 
 
-    def save2Vid(self):
+    def save2Vid(self, episode, step):
 
         img = np.copy(self.current_map_state)
 
@@ -301,7 +301,8 @@ class Env:
 
         full_heatmap = self.heatmap_render_prep(reward_map)
         full_heatmap = cv2.resize(full_heatmap, (700, 700), interpolation=cv2.INTER_AREA)
-
+        display_string = "Episode: " + str(episode) + " Step: " + str(step)
+        full_heatmap = cv2.putText(full_heatmap, display_string, (20,20), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (255,255,255) , 2, cv2.LINE_AA) 
         self.out.write(full_heatmap.astype('uint8'))
 
         

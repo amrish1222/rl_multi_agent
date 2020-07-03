@@ -31,10 +31,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-    if keyboard.is_pressed('['):
-        act = 1
-    elif keyboard.is_pressed(']'):
-        act = 2
+#    if keyboard.is_pressed('['):
+#        act = 1
+#    elif keyboard.is_pressed(']'):
+#        act = 2
     return act
 
 
@@ -84,7 +84,7 @@ for episode in tqdm(range(NUM_EPISODES)):
         
         # TODO save video
         if episode%500 in range(10,15) and step%4 == 0:
-            env.save2Vid()
+            env.save2Vid(episode, step)
             
         # Get agent actions
         aActions = []

@@ -9,6 +9,7 @@ from env import Env
 from tqdm import tqdm
 import cv2
 from collections import defaultdict
+from time import time as t
 
 from ppo_agent import PPO
 from ppo_agent import Memory
@@ -45,8 +46,8 @@ rlAgent = PPO(env)
 
 
 NUM_EPISODES = 30000
-LEN_EPISODES = 1000
-UPDATE_TIMESTEP = 6000
+LEN_EPISODES = 200
+UPDATE_TIMESTEP = 1000
 curState = []
 newState= []
 reward_history = []
@@ -85,17 +86,21 @@ for episode in tqdm(range(NUM_EPISODES)):
         # TODO save video
         if episode%500 in range(10,15) and step%4 == 0:
             env.save2Vid(episode, step)
-            
+#        a = t()
         # Get agent actions
-        aActions = []
-        for i in range(CONST.NUM_AGENTS):
-            action = rlAgent.policy.act(curState[i], memory,i)
-            aActions.append(action)
+# =============================================================================
+#         for i in range(CONST.NUM_AGENTS):
+#             action = rlAgent.policy.act(curState[i], memory,i)
+#             aActions.append(action)
+# =============================================================================
+        aActions = rlAgent.policy.act(curState, memory, CONST.NUM_AGENTS)
+#        b = t()
+#        print("step: ", round(b-a,2))
         
         # do actions
+        
         newRawState  = env.step(aActions)
         agent_pos_list, current_map_state, local_heatmap_list, reward, done = newRawState
-        
         if step == LEN_EPISODES -1:
             done = True
         

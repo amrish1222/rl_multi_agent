@@ -117,7 +117,8 @@ class ActorCritic(nn.Module):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
         
-        action_logprobs = torch.diag(dist.log_prob(action))
+#        action_logprobs = torch.diag(dist.log_prob(action))
+        action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
         

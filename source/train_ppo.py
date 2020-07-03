@@ -83,8 +83,8 @@ for episode in tqdm(range(NUM_EPISODES)):
             env.render()
         
         # TODO save video
-#        if episode%500 in range(10,15) and step%4 == 0:
-#            env.save2Vid()
+        if episode%500 in range(10,15) and step%4 == 0:
+            env.save2Vid()
             
         # Get agent actions
         aActions = []

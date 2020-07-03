@@ -98,25 +98,27 @@ class ActorCritic(nn.Module):
     def forward(self):
         raise NotImplementedError
         
-    def act(self, state, memory, agent_index):
+    def act(self, state, memory, num_agents):
         with torch.no_grad():
             state = torch.from_numpy(state).float().to(device)
-            save_state = state.unsqueeze(0)
-            action_probs = self.action_layer(save_state.unsqueeze(0))
+            action_probs = self.action_layer(state)
             dist = Categorical(action_probs)
             action = dist.sample()
-            
-            memory.states[agent_index].append(save_state)
-            memory.actions[agent_index].append(action)
-            memory.logprobs[agent_index].append(dist.log_prob(action))
         
-        return action.item()
+            action_list = []
+            for agent_index in range(num_agents):
+                memory.states[agent_index].append(state[agent_index])
+                memory.actions[agent_index].append(action[agent_index])
+                memory.logprobs[agent_index].append(dist.log_prob(action[agent_index])[agent_index])
+                action_list.append(action[agent_index].item())
+        return action_list
     
     def evaluate(self, state, action):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
         
-        action_logprobs = torch.diag(dist.log_prob(action))
+#        action_logprobs = torch.diag(dist.log_prob(action))
+        action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
         
@@ -215,8 +217,7 @@ class PPO:
         return advantages.mean().item()
         
     def formatInput(self, states):
-
-        return states[2]
+        return np.array(states[2]).reshape((len(states[2]), 1, states[2][0].shape[0], states[2][0].shape[1]))
     
     def summaryWriter_showNetwork(self, curr_state):
         X = torch.tensor(list(curr_state)).to(self.device)

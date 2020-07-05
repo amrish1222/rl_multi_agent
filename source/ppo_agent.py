@@ -154,6 +154,17 @@ class PPO:
         torch.manual_seed(2)
         
         self.policy = ActorCritic(env).to(device)
+
+
+        """
+        #print out all learnable parameters 
+        for n, p in self.policy.named_parameters():
+            print(n, p.shape)
+
+        """
+
+
+        # chain up the trainig parts
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
 #        self.policy_old = ActorCritic(env).to(device)
 #        self.policy_old.load_state_dict(self.policy.state_dict())

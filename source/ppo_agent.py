@@ -9,8 +9,11 @@ from torch.utils.tensorboard import SummaryWriter
 import random
 from collections import defaultdict
 import itertools
+import source.embedding_graph as EMG
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+num_agents= 6
 
 class Memory:
     def __init__(self, num_agents):
@@ -32,25 +35,20 @@ class ActorCritic(nn.Module):
     def __init__(self, env):
         super(ActorCritic, self).__init__()
 
+
         # actor
-        self.feature1 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
-                    nn.BatchNorm2d(16),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(16,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(32,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Flatten()
-                    )
+
+        # added embedding layer
+        self.embeding_layer1 = EMG.embedding_layer()
+        # added fully connected graph generator
+        self.graph1 = EMG.FC_graph(num_agents)
+        # added GAT network: with #attention head = 3
+        self.GAT1 = EMG.GAT(500, 3)
+
+
+
+
         self.reg1 = nn.Sequential(
-                    nn.Linear(3*3*32, 500),
-                    nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
                     nn.Linear(256, len(env.get_action_space())),
@@ -58,24 +56,15 @@ class ActorCritic(nn.Module):
                 )
         
         # critic
-        self.feature2 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
-                    nn.BatchNorm2d(16),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(16,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(32,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
-                    nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Flatten()
-                    )
+        # added embedding layer
+        self.embeding_layer2 = EMG.embedding_layer()
+        # added fully connected graph generator
+        self.graph2 = EMG.FC_graph(num_agents)
+        # added GAT network: with #attention head = 3
+        self.GAT2 = EMG.GAT(500, 3)
+        
+
         self.reg2 = nn.Sequential(
-                    nn.Linear(3*3*32, 500),
-                    nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
                     nn.Linear(256, 1)
@@ -84,14 +73,27 @@ class ActorCritic(nn.Module):
         self.train()
         
     def action_layer(self, x1):
-        x = self.feature1(x1)
-#        x = torch.cat((x,x2), dim = 1)
+        # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
+        x= self.embeding_layer1(x1)
+        # self.graph is fully connected graph
+        self.graph1.ndata['x'] = x
+        # run the graph convolution (attention) to get new feature x and graph
+        x, self.graph1 = self.GAT1(self.graph1, self.graph1.ndata['x'])
+        # get action distribution
         x = self.reg1(x)
+        #print(EMG.get_att_matrix(self.graph1))
+        #print(x)
         return x
     
     def value_layer(self, x1):
-        x = self.feature2(x1)
-#        x = torch.cat((x,x2), dim = 1)
+        # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
+        x = self.embeding_layer2(x1)
+        # self.graph is fully connected graph
+        self.graph2.ndata['x'] = x
+        # run the graph convolution (attention) to get new feature x and graph
+        x, self.graph2 = self.GAT2(self.graph2, self.graph2.ndata['x'])
+        #print(EMG.get_att_matrix(self.graph1))
+        #print(x)
         x = self.reg2(x)
         return x
         

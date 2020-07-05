@@ -4,6 +4,8 @@ import warnings
 warnings.filterwarnings('ignore')
 import keyboard
 
+import time
+
 import numpy as np
 from env import Env
 from tqdm import tqdm
@@ -113,7 +115,9 @@ for episode in tqdm(range(NUM_EPISODES)):
         newState = rlAgent.formatInput(newRawState)
         
         if timestep % UPDATE_TIMESTEP == 0:
+            a = time.time()
             loss = rlAgent.update(memory)
+            print("update time: ", round(1000*(time.time() - a),2))
             memory.clear_memory()
             timestep = 0
         

@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 import random
 from collections import defaultdict
 import itertools
-import source.embedding_graph as EMG
+import embedding_graph as EMG
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -116,17 +116,32 @@ class ActorCritic(nn.Module):
         return action_list
     
     def evaluate(self, state, action):
-        action_probs = self.action_layer(state)
-        dist = Categorical(action_probs)
-        
-#        action_logprobs = torch.diag(dist.log_prob(action))
-        action_logprobs = dist.log_prob(action)
-        action_logprobs = action_logprobs.view(-1,1)
-        dist_entropy = dist.entropy()
-        
-        state_value = self.value_layer(state)
-        
-        return action_logprobs, torch.squeeze(state_value), dist_entropy
+        action_logprob_list = []
+        state_value_list = []
+        dist_entropy_list = []
+        for i in range(0,len(state),6):
+            #print(i)
+            temp_state = state[i : i+6]
+            temp_action = action[i :  i+6]
+            action_probs = self.action_layer(temp_state)
+            dist = Categorical(action_probs)
+
+    #        action_logprobs = torch.diag(dist.log_prob(action))
+            action_logprobs = dist.log_prob(temp_action)
+            action_logprobs = action_logprobs.view(-1,1)
+            dist_entropy = dist.entropy()
+
+            state_value = self.value_layer(temp_state)
+
+            action_logprob_list.append(action_logprobs)
+            state_value_list.append(torch.squeeze(state_value))
+            dist_entropy_list.append(dist_entropy)
+
+        action_logprobs = torch.cat(action_logprob_list)
+        state_value = torch.cat(state_value_list)
+        dist_entropy = torch.cat(dist_entropy_list)
+
+        return action_logprobs, state_value, dist_entropy
         
 class PPO:
     def __init__(self, env):
@@ -164,19 +179,31 @@ class PPO:
         all_rewards =np.array(all_rewards)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
-        
-        minibatch_sz = 1000
+
         
         # concatenate all the states, actions, logprobs
         temp_states = []
         temp_actions = []
         temp_logprobs = []
-        for i in range(memory.num_agents):
-            temp_states += memory.states[i]
-            temp_actions += memory.actions[i]
-            temp_logprobs += memory.logprobs[i]
-            
+
+        states_list = list(map(list,zip(*list(memory.states.values()))))
+        actions_list = list(map(list, zip(*list(memory.actions.values()))))
+        logprobs_list = list(map(list, zip(*list(memory.logprobs.values()))))
+
+
+        # print(len(states_list), len(states_list[0]), len(states_list[1]))
+
+
+        for i in range(len(states_list)):
+            temp_states += states_list[i]
+            temp_actions += actions_list[i]
+            temp_logprobs += logprobs_list[i]
+
+        minibatch_sz = memory.num_agents * 1000
+
+        #print(len(temp_states))
         mem_sz = len(temp_states)
+
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             prev = 0
@@ -198,6 +225,7 @@ class PPO:
                 
                 # Evaluating old actions and values :
                 logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+                #print(" evaluation complete")
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs - old_logprobs.detach())
                     

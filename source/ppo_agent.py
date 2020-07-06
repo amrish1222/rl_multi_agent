@@ -10,6 +10,7 @@ import random
 from collections import defaultdict
 import itertools
 import embedding_graph as EMG
+import time
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -76,10 +77,14 @@ class ActorCritic(nn.Module):
     def action_layer(self, x1):
         # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
         x= self.embeding_layer1(x1)
-        # self.graph is fully connected graph
-        self.graph1.ndata['x'] = x
-        # run the graph convolution (attention) to get new feature x and graph
-        x, self.graph1 = self.GAT1(self.graph1, self.graph1.ndata['x'])
+        
+        x_list = []
+        for i in range(0, len(x), num_agents):
+            # self.graph is fully connected graph
+            self.graph1.ndata['x'] = x[i:i+6]
+            temp_x, self.graph1 = self.GAT1(self.graph1, self.graph1.ndata['x'])
+            x_list.append(temp_x)
+        x = torch.cat(x_list)
         # get action distribution
         x = self.reg1(x)
         #print(EMG.get_att_matrix(self.graph1))
@@ -90,9 +95,15 @@ class ActorCritic(nn.Module):
         # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
         x = self.embeding_layer2(x1)
         # self.graph is fully connected graph
-        self.graph2.ndata['x'] = x
-        # run the graph convolution (attention) to get new feature x and graph
-        x, self.graph2 = self.GAT2(self.graph2, self.graph2.ndata['x'])
+        
+        x_list = []
+        for i in range(0, len(x), num_agents):
+            # self.graph is fully connected graph
+            self.graph2.ndata['x'] = x[i:i+6]
+            # run the graph convolution (attention) to get new feature x and graph
+            temp_x, self.graph2 = self.GAT1(self.graph2, self.graph2.ndata['x'])
+            x_list.append(temp_x)
+        x = torch.cat(x_list)
         #print(EMG.get_att_matrix(self.graph1))
         #print(x)
         x = self.reg2(x)
@@ -120,24 +131,22 @@ class ActorCritic(nn.Module):
         action_logprob_list = []
         state_value_list = []
         dist_entropy_list = []
-        for i in range(0,len(state),6):
-            #print(i)
-            temp_state = state[i : i+6]
-            temp_action = action[i :  i+6]
-            action_probs = self.action_layer(temp_state)
-            dist = Categorical(action_probs)
+        
+        action_probs = self.action_layer(state)
+        dist = Categorical(action_probs)
 
-    #        action_logprobs = torch.diag(dist.log_prob(action))
-            action_logprobs = dist.log_prob(temp_action)
-            action_logprobs = action_logprobs.view(-1,1)
-            dist_entropy = dist.entropy()
+#        action_logprobs = torch.diag(dist.log_prob(action))
+        action_logprobs = dist.log_prob(action)
+        action_logprobs = action_logprobs.view(-1,1)
+        dist_entropy = dist.entropy()
 
-            state_value = self.value_layer(temp_state)
+        state_value = self.value_layer(state)
 
-            action_logprob_list.append(action_logprobs)
-            state_value_list.append(torch.squeeze(state_value))
-            dist_entropy_list.append(dist_entropy)
-
+        action_logprob_list.append(action_logprobs)
+        state_value_list.append(torch.squeeze(state_value))
+        dist_entropy_list.append(dist_entropy)
+        
+        
         action_logprobs = torch.cat(action_logprob_list)
         state_value = torch.cat(state_value_list)
         dist_entropy = torch.cat(dist_entropy_list)
@@ -205,7 +214,9 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
+                a = time.time()
                 logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+                print("evaluate: ", round(1000*(time.time() - a),2))
                 #print(" evaluation complete")
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs - old_logprobs.detach())

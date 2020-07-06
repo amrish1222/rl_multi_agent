@@ -43,7 +43,7 @@ class ActorCritic(nn.Module):
         # added fully connected graph generator
         self.graph1 = EMG.FC_graph(num_agents)
         # added GAT network: with #attention head = 3
-        self.GAT1 = EMG.GAT(500, 3)
+        self.GAT1 = EMG.GAT(250, 3)
 
 
 
@@ -61,7 +61,7 @@ class ActorCritic(nn.Module):
         # added fully connected graph generator
         self.graph2 = EMG.FC_graph(num_agents)
         # added GAT network: with #attention head = 3
-        self.GAT2 = EMG.GAT(500, 3)
+        self.GAT2 = EMG.GAT(250, 3)
         
 
         self.reg2 = nn.Sequential(
@@ -77,8 +77,16 @@ class ActorCritic(nn.Module):
         x= self.embeding_layer1(x1)
         # self.graph is fully connected graph
         self.graph1.ndata['x'] = x
+
+        self_in= x
+
+
         # run the graph convolution (attention) to get new feature x and graph
         x, self.graph1 = self.GAT1(self.graph1, self.graph1.ndata['x'])
+
+
+        x= torch.cat((self_in, x), 1)
+
         # get action distribution
         x = self.reg1(x)
         #print(EMG.get_att_matrix(self.graph1))
@@ -90,8 +98,16 @@ class ActorCritic(nn.Module):
         x = self.embeding_layer2(x1)
         # self.graph is fully connected graph
         self.graph2.ndata['x'] = x
+
+        self_in = x
+
+
         # run the graph convolution (attention) to get new feature x and graph
         x, self.graph2 = self.GAT2(self.graph2, self.graph2.ndata['x'])
+
+        x = torch.cat((self_in, x), 1)
+
+
         #print(EMG.get_att_matrix(self.graph1))
         #print(x)
         x = self.reg2(x)

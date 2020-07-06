@@ -13,6 +13,11 @@ class CONSTANTS:
     def __init__(self):
         self.TIME_STEP=1
         
+        self.LEN_EPISODE = 1000
+        
+        self.NUM_EPISODES = 30000
+        
+        self.UPDATE_STEP = 6000
         
         self.NUM_AGENTS = 6
         

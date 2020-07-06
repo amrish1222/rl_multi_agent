@@ -16,20 +16,21 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_agents= 6
 
 class Memory:
-    def __init__(self, num_agents):
-        self.actions = defaultdict(list)
-        self.states = defaultdict(list)
-        self.logprobs = defaultdict(list)
-        self.rewards = defaultdict(list)
-        self.is_terminals = defaultdict(list)
+    def __init__(self, num_agents, steps):
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_terminals = []
         self.num_agents = num_agents
+        self.length_episode = steps
     
     def clear_memory(self):
-        self.actions.clear()
-        self.states.clear()
-        self.logprobs.clear()
-        self.rewards.clear()
-        self.is_terminals.clear()
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.is_terminals[:]
 
 class ActorCritic(nn.Module):
     def __init__(self, env):
@@ -109,9 +110,9 @@ class ActorCritic(nn.Module):
         
             action_list = []
             for agent_index in range(num_agents):
-                memory.states[agent_index].append(state[agent_index])
-                memory.actions[agent_index].append(action[agent_index])
-                memory.logprobs[agent_index].append(dist.log_prob(action[agent_index])[agent_index])
+                memory.states.append(state[agent_index])
+                memory.actions.append(action[agent_index])
+                memory.logprobs.append(dist.log_prob(action[agent_index])[agent_index])
                 action_list.append(action[agent_index].item())
         return action_list
     
@@ -166,43 +167,23 @@ class PPO:
         # Monte Carlo estimate of state rewards:
         all_rewards = []
         discounted_reward = 0
-        for i in reversed(range(memory.num_agents)):
-            for reward, is_terminal in zip(reversed(memory.rewards[i]), reversed(memory.is_terminals[i])):
-                if is_terminal:
-                    discounted_reward = 0
-                discounted_reward = reward + (self.gamma * discounted_reward)
-                all_rewards.insert(0, discounted_reward)
+        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+            if is_terminal:
+                discounted_reward = 0
+            discounted_reward = reward + (self.gamma * discounted_reward)
+            all_rewards.insert(0, discounted_reward)
         
+        # create rewards for all agents
+        temp_rewards = np.array(all_rewards)
+        all_rewards = np.repeat(temp_rewards, memory.num_agents)
         # Normalizing the rewards:
-#        all_rewards = torch.tensor(all_rewards).to(device)
-#        all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
-        all_rewards =np.array(all_rewards)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
 
-        
-        # concatenate all the states, actions, logprobs
-        temp_states = []
-        temp_actions = []
-        temp_logprobs = []
-
-        states_list = list(map(list,zip(*list(memory.states.values()))))
-        actions_list = list(map(list, zip(*list(memory.actions.values()))))
-        logprobs_list = list(map(list, zip(*list(memory.logprobs.values()))))
-
-
-        # print(len(states_list), len(states_list[0]), len(states_list[1]))
-
-
-        for i in range(len(states_list)):
-            temp_states += states_list[i]
-            temp_actions += actions_list[i]
-            temp_logprobs += logprobs_list[i]
-
-        minibatch_sz = memory.num_agents * 1000
+        minibatch_sz = memory.num_agents * memory.length_episode
 
         #print(len(temp_states))
-        mem_sz = len(temp_states)
+        mem_sz = len(memory.states)
 
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
@@ -210,9 +191,9 @@ class PPO:
             for i in range(minibatch_sz, mem_sz+1, minibatch_sz):
                 
 #                print(prev,i, minibatch_sz, mem_sz)
-                mini_old_states = temp_states[prev:i]
-                mini_old_actions = temp_actions[prev:i]
-                mini_old_logprobs = temp_logprobs[prev:i]
+                mini_old_states = memory.states[prev:i]
+                mini_old_actions = memory.actions[prev:i]
+                mini_old_logprobs = memory.logprobs[prev:i]
                 mini_rewards = all_rewards[prev:i]
                 
                 # convert list to tensor

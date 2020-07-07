@@ -21,7 +21,7 @@ class embedding_layer(nn.Module):
 
         self.layer2 = nn.Sequential(
             nn.Linear(5184, 1000),
-            nn.Linear(1000, 500)
+            nn.Linear(1000, 250)
         )
 
         self.train()

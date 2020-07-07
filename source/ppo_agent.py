@@ -11,7 +11,7 @@ from collections import defaultdict
 import itertools
 import embedding_graph as EMG
 import time
-
+import dgl
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_agents= 6
@@ -38,14 +38,17 @@ class ActorCritic(nn.Module):
         super(ActorCritic, self).__init__()
 
 
+        self.bacth_x = None
+
+
         # actor
 
-        # added embedding layer
-        self.embeding_layer1 = EMG.embedding_layer()
+        # added embedding layer (shared)
+        self.embeding_layer = EMG.embedding_layer()
         # added fully connected graph generator
-        self.graph1 = EMG.FC_graph(num_agents)
+        self.graph = EMG.FC_graph(num_agents)
         # added GAT network: with #attention head = 3
-        self.GAT1 = EMG.GAT(500, 3)
+        self.GAT = EMG.GAT(250, 3)
 
 
 
@@ -58,13 +61,7 @@ class ActorCritic(nn.Module):
                 )
         
         # critic
-        # added embedding layer
-        self.embeding_layer2 = EMG.embedding_layer()
-        # added fully connected graph generator
-        self.graph2 = EMG.FC_graph(num_agents)
-        # added GAT network: with #attention head = 3
-        self.GAT2 = EMG.GAT(500, 3)
-        
+
 
         self.reg2 = nn.Sequential(
                     nn.Linear(500, 256),
@@ -76,36 +73,64 @@ class ActorCritic(nn.Module):
         
     def action_layer(self, x1):
         # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
-        x= self.embeding_layer1(x1)
-        
-        x_list = []
-        for i in range(0, len(x), num_agents):
-            # self.graph is fully connected graph
-            self.graph1.ndata['x'] = x[i:i+6]
-            temp_x, self.graph1 = self.GAT1(self.graph1, self.graph1.ndata['x'])
-            x_list.append(temp_x)
-        x = torch.cat(x_list)
+        x= self.embeding_layer(x1)
+
+
+        self_in = x
+
+
+
+        # check if single or batch
+        if x.shape[0] == num_agents:
+            self.graph.ndata['x'] = x
+            # run the graph convolution (attention) to get new feature x and graph
+            x, self.graph = self.GAT(self.graph, self.graph.ndata['x'])
+        # else doing batch
+        else:
+            batch_sz= x.shape[0] // num_agents
+            G = dgl.batch([self.graph] * batch_sz)
+            G.ndata['x']= x
+            x, _ = self.GAT(G, G.ndata['x'])
+
+
+
+        # concatenate => z=  (h0 || h1) as the output from GAT
+        x = torch.cat((self_in, x), 1)
+
+
+
+
+        self.bacth_x = x
+
+
+
+
         # get action distribution
         x = self.reg1(x)
-        #print(EMG.get_att_matrix(self.graph1))
-        #print(x)
+
         return x
     
     def value_layer(self, x1):
         # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
-        x = self.embeding_layer2(x1)
-        # self.graph is fully connected graph
-        
-        x_list = []
-        for i in range(0, len(x), num_agents):
-            # self.graph is fully connected graph
-            self.graph2.ndata['x'] = x[i:i+6]
+        x = self.embeding_layer(x1)
+
+        self_in = x
+
+        # check if single or batch
+        if x.shape[0] == num_agents:
+            self.graph.ndata['x'] = x
             # run the graph convolution (attention) to get new feature x and graph
-            temp_x, self.graph2 = self.GAT1(self.graph2, self.graph2.ndata['x'])
-            x_list.append(temp_x)
-        x = torch.cat(x_list)
-        #print(EMG.get_att_matrix(self.graph1))
-        #print(x)
+            x, self.graph = self.GAT(self.graph, self.graph.ndata['x'])
+            # concatenate => z=  (h0 || h1) as the output from GAT
+            x = torch.cat((self_in, x), 1)
+
+        # else doing batch
+        else:
+            #directly use batch result from actor (shared struture)
+            x= self.bacth_x
+
+
+
         x = self.reg2(x)
         return x
         
@@ -214,9 +239,9 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
-                a = time.time()
+                #a = time.time()
                 logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
-                print("evaluate: ", round(1000*(time.time() - a),2))
+                #print("evaluate: ", round(1000*(time.time() - a),2))
                 #print(" evaluation complete")
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs - old_logprobs.detach())

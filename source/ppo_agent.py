@@ -111,14 +111,13 @@ class ActorCritic(nn.Module):
         return x
     
     def value_layer(self, x1):
+        # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
+        x = self.embeding_layer(x1)
 
+        self_in = x
 
         # check if single or batch
-        if x1.shape[0] == num_agents:
-            # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
-            x = self.embeding_layer(x1)
-
-            self_in = x
+        if x.shape[0] == num_agents:
             self.graph.ndata['x'] = x
             # run the graph convolution (attention) to get new feature x and graph
             x, self.graph = self.GAT(self.graph, self.graph.ndata['x'])

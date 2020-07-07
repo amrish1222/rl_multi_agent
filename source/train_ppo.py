@@ -4,6 +4,8 @@ import warnings
 warnings.filterwarnings('ignore')
 import keyboard
 
+import time
+
 import numpy as np
 from env import Env
 from tqdm import tqdm
@@ -41,13 +43,13 @@ def getKeyPress(act):
 
 env = Env()
 
-memory = Memory(CONST.NUM_AGENTS)
+memory = Memory(CONST.NUM_AGENTS, CONST.LEN_EPISODE)
 rlAgent = PPO(env)
 
 
-NUM_EPISODES = 30000
-LEN_EPISODES = 1000
-UPDATE_TIMESTEP = 6000
+NUM_EPISODES = CONST.NUM_EPISODES
+LEN_EPISODES = CONST.LEN_EPISODE
+UPDATE_TIMESTEP = CONST.UPDATE_STEP
 curState = []
 newState= []
 reward_history = []
@@ -104,16 +106,18 @@ for episode in tqdm(range(NUM_EPISODES)):
         if step == LEN_EPISODES -1:
             done = True
         
-        for agent_index in range(CONST.NUM_AGENTS):
-            memory.rewards[agent_index].append(reward)
-            memory.is_terminals[agent_index].append(done)
+        # record only once for all agents and retrieve after calculating discounted reward
+        memory.rewards.append(reward)
+        memory.is_terminals.append(done)
             
         
         # update nextState
         newState = rlAgent.formatInput(newRawState)
         
         if timestep % UPDATE_TIMESTEP == 0:
+            #a = time.time()
             loss = rlAgent.update(memory)
+            #print("update time: ", round(1000*(time.time() - a),2))
             memory.clear_memory()
             timestep = 0
         

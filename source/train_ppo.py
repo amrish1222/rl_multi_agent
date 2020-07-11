@@ -107,8 +107,10 @@ for episode in tqdm(range(NUM_EPISODES)):
             done = True
         
         # record only once for all agents and retrieve after calculating discounted reward
-        memory.rewards.append(reward)
-        memory.is_terminals.append(done)
+        for _ in range(CONST.NUM_AGENTS):
+            memory.rewards.append(reward)
+            memory.is_terminals.append(done)
+            
             
         
         # update nextState

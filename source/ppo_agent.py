@@ -175,12 +175,13 @@ class PPO:
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
         all_rewards = []
-        discounted_reward = 0
-        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+        discounted_reward_list = [0]* int(num_agents)
+        agent_index_list = list(range(num_agents)) * int(len(memory.rewards)/ num_agents)
+        for reward, is_terminal, agent_index in zip(reversed(memory.rewards), reversed(memory.is_terminals), reversed(agent_index_list)):
             if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            all_rewards.insert(0, discounted_reward)
+                discounted_reward_list[agent_index] = 0
+            discounted_reward_list[agent_index] = reward + (self.gamma * discounted_reward_list[agent_index])
+            all_rewards.insert(0, discounted_reward_list[agent_index])
         
         # create rewards for all agents
         temp_rewards = np.array(all_rewards)

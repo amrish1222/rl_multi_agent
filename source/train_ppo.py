@@ -51,7 +51,7 @@ UPDATE_TIMESTEP = 6000
 curState = []
 newState= []
 reward_history = []
-mapNewVisPenalty_history = defaultdict(list)
+agent_history_dict = defaultdict(list)
 totalViewed = []
 dispFlag = False
 
@@ -73,6 +73,7 @@ for episode in tqdm(range(NUM_EPISODES)):
     epidoseLoss = 0
     episodeNewVisited = 0
     episodePenalty = 0
+    agent_episode_reward = [0]* CONST.NUM_AGENTS
     
     for step in range(LEN_EPISODES):
         timestep += 1
@@ -105,8 +106,8 @@ for episode in tqdm(range(NUM_EPISODES)):
             done = True
         
         for agent_index in range(CONST.NUM_AGENTS):
-            memory.rewards[agent_index].append(reward)
-            memory.is_terminals[agent_index].append(done)
+            memory.rewards.append(reward[agent_index])
+            memory.is_terminals.append(done)
             
         
         # update nextState
@@ -118,7 +119,10 @@ for episode in tqdm(range(NUM_EPISODES)):
             timestep = 0
         
         # record history
-        episodeReward += reward
+        
+        for i in range(CONST.NUM_AGENTS):
+            agent_episode_reward[i] += reward[i]
+        episodeReward += np.sum(reward)
         # set current state for next step
         curState = newState
         
@@ -130,9 +134,13 @@ for episode in tqdm(range(NUM_EPISODES)):
     # Record history        
     reward_history.append(episodeReward)
     
+    for i in range(CONST.NUM_AGENTS):
+        agent_history_dict[i].append((agent_episode_reward[i]))
+    
+    
     # You may want to plot periodically instead of after every episode
     # Otherwise, things will slow
-    rlAgent.summaryWriter_addMetrics(episode, loss, reward_history, LEN_EPISODES)
+    rlAgent.summaryWriter_addMetrics(episode, loss, reward_history, agent_history_dict, LEN_EPISODES)
     if episode % 50 == 0:
         rlAgent.saveModel("checkpoints")
             

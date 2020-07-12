@@ -9,24 +9,26 @@ from torch.utils.tensorboard import SummaryWriter
 import random
 from collections import defaultdict
 import itertools
+from constants import CONSTANTS
+CONST = CONSTANTS()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Memory:
     def __init__(self, num_agents):
-        self.actions = defaultdict(list)
-        self.states = defaultdict(list)
-        self.logprobs = defaultdict(list)
-        self.rewards = defaultdict(list)
-        self.is_terminals = defaultdict(list)
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_terminals = []
         self.num_agents = num_agents
     
     def clear_memory(self):
-        self.actions.clear()
-        self.states.clear()
-        self.logprobs.clear()
-        self.rewards.clear()
-        self.is_terminals.clear()
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.is_terminals[:]
 
 class ActorCritic(nn.Module):
     def __init__(self, env):
@@ -107,9 +109,9 @@ class ActorCritic(nn.Module):
         
             action_list = []
             for agent_index in range(num_agents):
-                memory.states[agent_index].append(state[agent_index])
-                memory.actions[agent_index].append(action[agent_index])
-                memory.logprobs[agent_index].append(dist.log_prob(action[agent_index])[agent_index])
+                memory.states.append(state[agent_index])
+                memory.actions.append(action[agent_index])
+                memory.logprobs.append(dist.log_prob(action[agent_index])[agent_index])
                 action_list.append(action[agent_index].item())
         return action_list
     
@@ -148,13 +150,13 @@ class PPO:
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
         all_rewards = []
-        discounted_reward = 0
-        for i in reversed(range(memory.num_agents)):
-            for reward, is_terminal in zip(reversed(memory.rewards[i]), reversed(memory.is_terminals[i])):
-                if is_terminal:
-                    discounted_reward = 0
-                discounted_reward = reward + (self.gamma * discounted_reward)
-                all_rewards.insert(0, discounted_reward)
+        discounted_reward_list = [0]* int(CONST.NUM_AGENTS)
+        agent_index_list = list(range(CONST.NUM_AGENTS)) * int(len(memory.rewards)/ CONST.NUM_AGENTS)
+        for reward, is_terminal, agent_index in zip(reversed(memory.rewards), reversed(memory.is_terminals), reversed(agent_index_list)):
+            if is_terminal:
+                discounted_reward_list[agent_index] = 0
+            discounted_reward_list[agent_index] = reward + (self.gamma * discounted_reward_list[agent_index])
+            all_rewards.insert(0, discounted_reward_list[agent_index])
         
         # Normalizing the rewards:
 #        all_rewards = torch.tensor(all_rewards).to(device)
@@ -164,26 +166,17 @@ class PPO:
         
         
         minibatch_sz = 1000
-        
-        # concatenate all the states, actions, logprobs
-        temp_states = []
-        temp_actions = []
-        temp_logprobs = []
-        for i in range(memory.num_agents):
-            temp_states += memory.states[i]
-            temp_actions += memory.actions[i]
-            temp_logprobs += memory.logprobs[i]
             
-        mem_sz = len(temp_states)
+        mem_sz = len(memory.states)
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             prev = 0
             for i in range(minibatch_sz, mem_sz+1, minibatch_sz):
                 
 #                print(prev,i, minibatch_sz, mem_sz)
-                mini_old_states = temp_states[prev:i]
-                mini_old_actions = temp_actions[prev:i]
-                mini_old_logprobs = temp_logprobs[prev:i]
+                mini_old_states = memory.states[prev:i]
+                mini_old_actions = memory.actions[prev:i]
+                mini_old_logprobs = memory.logprobs[prev:i]
                 mini_rewards = all_rewards[prev:i]
                 
                 # convert list to tensor
@@ -223,7 +216,7 @@ class PPO:
         X = torch.tensor(list(curr_state)).to(self.device)
         self.sw.add_graph(self.model, X, False)
     
-    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, lenEpisode):
+    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, agent_RwdDict, lenEpisode):
         if loss:
             self.sw.add_scalar('6.Loss', loss, episode)
         self.sw.add_scalar('3.Reward', rewardHistory[-1], episode)
@@ -235,17 +228,17 @@ class PPO:
         else:    
             avg_reward = mean(rewardHistory) 
         self.sw.add_scalar('1.Average of Last 100 episodes', avg_reward, episode)
-#        
-#        for item in mapRwdDict:
-#            title ='4. Map ' + str(item + 1)
-#            if len(mapRwdDict[item]) >= 100:
-#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed=  zip(*mapRwdDict[item][-100:])
-#            else:
-#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed =  zip(*mapRwdDict[item])
-#            avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed = mean(avg_mapReward), mean(avg_newArea), mean(avg_penalty), mean(avg_totalViewed)
-#
-#            self.sw.add_scalars(title,{'Total Reward':avg_mapReward,'New Area':avg_newArea,'Penalty': avg_penalty, 'Total Viewed': avg_totalViewed}, len(mapRwdDict[item])-1)
-#            
+        
+        for item in agent_RwdDict:
+            title ='4. Agent ' + str(item+1)
+            if len(agent_RwdDict[item]) >= 100:
+                avg_agent_rwd=  agent_RwdDict[item][-100:]
+            else:
+                avg_agent_rwd =  agent_RwdDict[item]
+            avg_agent_rwd = mean(avg_agent_rwd)
+
+            self.sw.add_scalar(title,avg_agent_rwd, len(agent_RwdDict[item])-1)
+            
     def summaryWriter_close(self):
         self.sw.close()
         

@@ -175,7 +175,7 @@ class Env:
         
         self.local_heatmap_list = self.get_local_heatmap_list(self.current_map_state, agent_g_pos_list)
         
-        reward = self.get_reward(self.current_map_state)
+        reward = self.get_reward_local(self.local_heatmap_list)
         
         done = False
         
@@ -266,6 +266,15 @@ class Env:
 
 
         return curSumR
+    
+    def get_reward_local(self, local_map_list):
+        reward_list = []
+        #sum up reward on all free pixels
+        for local_map in local_map_list:
+            actualR = np.where((local_map<= 0), local_map, 0)
+            curSumR = np.sum(actualR)
+            reward_list.append(curSumR)
+        return reward_list
     
     def get_local_heatmap_list(self, current_map, agent_g_pos_list):
         local_heatmap_list = []

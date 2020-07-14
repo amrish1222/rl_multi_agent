@@ -180,11 +180,11 @@ class Env:
         
         self.mini_map = self.get_mini_map(self.current_map_state, 0.5, agent_g_pos_list)
         
-        reward = self.get_reward_local(self.local_heatmap_list)
+        local_reward_list, shared_reward = self.get_reward_local(self.local_heatmap_list, self.current_map_state)
         
         done = False
         
-        return agent_pos_list, self.current_map_state, self.local_heatmap_list, self.mini_map, reward, done
+        return agent_pos_list, self.current_map_state, self.local_heatmap_list, self.mini_map, local_reward_list, shared_reward, done
     
     def reset(self):
         
@@ -296,14 +296,17 @@ class Env:
 
         return curSumR
     
-    def get_reward_local(self, local_map_list):
-        reward_list = []
+    def get_reward_local(self, local_map_list, current_map):
+        local_reward_list = []
         #sum up reward on all free pixels
         for local_map in local_map_list:
             actualR = np.where((local_map<= 0), local_map, 0)
             curSumR = np.sum(actualR)
-            reward_list.append(curSumR)
-        return reward_list
+            local_reward_list.append(curSumR)
+        sharedR = np.where((current_map<= 0), current_map, 0)
+        shared_reward = np.sum(sharedR)
+        print(local_reward_list, shared_reward)
+        return local_reward_list, shared_reward
     
     def get_local_heatmap_list(self, current_map, agent_g_pos_list):
         local_heatmap_list = []

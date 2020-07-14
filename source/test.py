@@ -53,6 +53,6 @@ for episode in tqdm(range(NUM_EPISODES)):
         a = time.time()
         env.step(actions)
         b = time.time()
-        print("step: ", round(1000*(b-a),2))
+#        print("step: ", round(1000*(b-a),2))
         env.render()
         

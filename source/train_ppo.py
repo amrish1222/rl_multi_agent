@@ -101,12 +101,12 @@ for episode in tqdm(range(NUM_EPISODES)):
         # do actions
         
         newRawState  = env.step(aActions)
-        agent_pos_list, current_map_state, local_heatmap_list, minimap_list, reward, done = newRawState
+        agent_pos_list, current_map_state, local_heatmap_list, minimap_list, local_reward_list, shared_reward, done = newRawState
         if step == LEN_EPISODES -1:
             done = True
         
         for agent_index in range(CONST.NUM_AGENTS):
-            memory.rewards.append(reward[agent_index])
+            memory.rewards.append(local_reward_list[agent_index])
             memory.is_terminals.append(done)
             
         
@@ -121,8 +121,8 @@ for episode in tqdm(range(NUM_EPISODES)):
         # record history
         
         for i in range(CONST.NUM_AGENTS):
-            agent_episode_reward[i] += reward[i]
-        episodeReward += np.sum(reward)
+            agent_episode_reward[i] += local_reward_list[i]
+        episodeReward += shared_reward
         # set current state for next step
         curState = newState
         

@@ -36,7 +36,7 @@ class ActorCritic(nn.Module):
 
         # actor
         self.feature1 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
+                    nn.Conv2d(2,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -61,7 +61,7 @@ class ActorCritic(nn.Module):
         
         # critic
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
+                    nn.Conv2d(2,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -210,7 +210,11 @@ class PPO:
         return advantages.mean().item()
         
     def formatInput(self, states):
-        return np.array(states[2]).reshape((len(states[2]), 1, states[2][0].shape[0], states[2][0].shape[1]))
+        out = []
+        for i in range(len(states[2])):
+            temp = [states[2][i], states[3][i]]
+            out.append(temp)
+        return np.array(out)
     
     def summaryWriter_showNetwork(self, curr_state):
         X = torch.tensor(list(curr_state)).to(self.device)

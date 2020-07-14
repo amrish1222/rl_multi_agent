@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-#    if keyboard.is_pressed('['):
-#        act = 1
-#    elif keyboard.is_pressed(']'):
-#        act = 2
+    if keyboard.is_pressed('['):
+        act = 1
+    elif keyboard.is_pressed(']'):
+        act = 2
     return act
 
 
@@ -59,7 +59,7 @@ dispFlag = False
 #curState = rlAgent.formatInput(curRawState)
 #rlAgent.summaryWriter_showNetwork(curState[0])
 
-keyPress = 0
+keyPress = 1
 timestep = 0
 loss = None
 
@@ -101,7 +101,7 @@ for episode in tqdm(range(NUM_EPISODES)):
         # do actions
         
         newRawState  = env.step(aActions)
-        agent_pos_list, current_map_state, local_heatmap_list, reward, done = newRawState
+        agent_pos_list, current_map_state, local_heatmap_list, minimap_list, reward, done = newRawState
         if step == LEN_EPISODES -1:
             done = True
         

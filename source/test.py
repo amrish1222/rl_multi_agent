@@ -50,11 +50,6 @@ for episode in tqdm(range(NUM_EPISODES)):
 #            else:
 #                actions.append(0)
             actions.append(rand.randint(0,4))
-        pos_list, _, local_view_list, reward, done = env.step(actions)
+        env.step(actions)
         env.render()
-        if done:
-            # end episode
-            print("Episode Complete")
-            break
         
-            

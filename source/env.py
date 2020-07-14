@@ -6,6 +6,8 @@
 import numpy as np
 import random
 import cv2
+import time
+import skimage.measure
 
 from constants import CONSTANTS as K
 CONST = K()
@@ -328,31 +330,28 @@ class Env:
 
     def get_mini_map(self, current_map, ratio, agent_g_pos):
         num_windows = int(current_map.shape[0] * ratio)
+        
+        
         window_sz = int(1/ratio)
         
-        mini_heatmap = np.zeros((num_windows, num_windows))
+        mini_obs = cv2.resize(self.obstacle_map,(num_windows,num_windows),interpolation = cv2.INTER_AREA)
+        mini_obs = np.where(mini_obs > 0, 150, 0)
+        
+        decay_map = np.where(current_map < 0, current_map, 0)
+        mini_decay = skimage.measure.block_reduce(decay_map, (window_sz,window_sz), np.min)
 
-        for i in range(num_windows):
-            for j in range(num_windows):
-                temp = current_map[int(i*window_sz): int((i+1)* window_sz),
-                                            int(j*window_sz): int((j+1)* window_sz)]
-                # priority: agent, decay, obstacle
-                if np.any(temp == 100):
-                    mini_heatmap[i,j] = 100
-                else:
-                    decay_val = min(0,np.amin(temp))
-                    if decay_val == 0 and np.any(temp == 150):
-                        mini_heatmap[i,j] = 150
-                    else:
-                        mini_heatmap[i,j] = decay_val
-                        
-                        
+        mini_heatmap = np.where(mini_decay < 0, mini_decay, mini_obs)
+
+
+        for gpos in agent_g_pos:
+            mini_heatmap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 100
+        
+
         agent_minimap_list = []
         for gpos in agent_g_pos:
             agent_minimap = np.copy(mini_heatmap)
             agent_minimap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 200
             agent_minimap_list.append(agent_minimap)
-        
         return agent_minimap_list
           
     def save2Vid(self, episode, step):

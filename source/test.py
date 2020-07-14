@@ -5,7 +5,7 @@ from env import Env
 from tqdm import tqdm
 import cv2
 import random as rand
-
+import time
 from constants import CONSTANTS as K
 CONST = K()
 
@@ -50,6 +50,9 @@ for episode in tqdm(range(NUM_EPISODES)):
 #            else:
 #                actions.append(0)
             actions.append(rand.randint(0,4))
+        a = time.time()
         env.step(actions)
+        b = time.time()
+        print("step: ", round(1000*(b-a),2))
         env.render()
         

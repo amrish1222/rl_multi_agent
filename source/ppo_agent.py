@@ -12,19 +12,20 @@ import itertools
 import embedding_graph as EMG
 import time
 import dgl
+from constants import CONSTANTS
+CONST = CONSTANTS()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_agents= 6
 
 class Memory:
-    def __init__(self, num_agents, steps):
+    def __init__(self, num_agents):
         self.actions = []
         self.states = []
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
         self.num_agents = num_agents
-        self.length_episode = steps
     
     def clear_memory(self):
         del self.actions[:]
@@ -154,30 +155,17 @@ class ActorCritic(nn.Module):
         return action_list
     
     def evaluate(self, state, action):
-        action_logprob_list = []
-        state_value_list = []
-        dist_entropy_list = []
-        
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
-
+        
 #        action_logprobs = torch.diag(dist.log_prob(action))
         action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
-
+        
         state_value = self.value_layer(state)
-
-        action_logprob_list.append(action_logprobs)
-        state_value_list.append(torch.squeeze(state_value))
-        dist_entropy_list.append(dist_entropy)
         
-        
-        action_logprobs = torch.cat(action_logprob_list)
-        state_value = torch.cat(state_value_list)
-        dist_entropy = torch.cat(dist_entropy_list)
-
-        return action_logprobs, state_value, dist_entropy
+        return action_logprobs, torch.squeeze(state_value), dist_entropy
         
 class PPO:
     def __init__(self, env):
@@ -201,25 +189,24 @@ class PPO:
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
         all_rewards = []
-        discounted_reward = 0
-        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+        discounted_reward_list = [0]* int(CONST.NUM_AGENTS)
+        agent_index_list = list(range(CONST.NUM_AGENTS)) * int(len(memory.rewards)/ CONST.NUM_AGENTS)
+        for reward, is_terminal, agent_index in zip(reversed(memory.rewards), reversed(memory.is_terminals), reversed(agent_index_list)):
             if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            all_rewards.insert(0, discounted_reward)
+                discounted_reward_list[agent_index] = 0
+            discounted_reward_list[agent_index] = reward + (self.gamma * discounted_reward_list[agent_index])
+            all_rewards.insert(0, discounted_reward_list[agent_index])
         
-        # create rewards for all agents
-        temp_rewards = np.array(all_rewards)
-        all_rewards = np.repeat(temp_rewards, memory.num_agents)
         # Normalizing the rewards:
+#        all_rewards = torch.tensor(all_rewards).to(device)
+#        all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
+        all_rewards =np.array(all_rewards)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
-
-        minibatch_sz = memory.num_agents * memory.length_episode
-
-        #print(len(temp_states))
+        
+        minibatch_sz = 1000
+            
         mem_sz = len(memory.states)
-
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             prev = 0
@@ -240,10 +227,7 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
-                #a = time.time()
                 logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
-                #print("evaluate: ", round(1000*(time.time() - a),2))
-                #print(" evaluation complete")
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs - old_logprobs.detach())
                     
@@ -265,13 +249,17 @@ class PPO:
         return advantages.mean().item()
         
     def formatInput(self, states):
-        return np.array(states[2]).reshape((len(states[2]), 1, states[2][0].shape[0], states[2][0].shape[1]))
+        out = []
+        for i in range(len(states[2])):
+            temp = [states[2][i], states[3][i]]
+            out.append(temp)
+        return np.array(out)
     
     def summaryWriter_showNetwork(self, curr_state):
         X = torch.tensor(list(curr_state)).to(self.device)
         self.sw.add_graph(self.model, X, False)
     
-    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, lenEpisode):
+    def summaryWriter_addMetrics(self, episode, loss, rewardHistory, agent_RwdDict, lenEpisode):
         if loss:
             self.sw.add_scalar('6.Loss', loss, episode)
         self.sw.add_scalar('3.Reward', rewardHistory[-1], episode)
@@ -283,17 +271,17 @@ class PPO:
         else:    
             avg_reward = mean(rewardHistory) 
         self.sw.add_scalar('1.Average of Last 100 episodes', avg_reward, episode)
-#        
-#        for item in mapRwdDict:
-#            title ='4. Map ' + str(item + 1)
-#            if len(mapRwdDict[item]) >= 100:
-#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed=  zip(*mapRwdDict[item][-100:])
-#            else:
-#                avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed =  zip(*mapRwdDict[item])
-#            avg_mapReward,avg_newArea, avg_penalty, avg_totalViewed = mean(avg_mapReward), mean(avg_newArea), mean(avg_penalty), mean(avg_totalViewed)
-#
-#            self.sw.add_scalars(title,{'Total Reward':avg_mapReward,'New Area':avg_newArea,'Penalty': avg_penalty, 'Total Viewed': avg_totalViewed}, len(mapRwdDict[item])-1)
-#            
+        
+        for item in agent_RwdDict:
+            title ='4. Agent ' + str(item+1)
+            if len(agent_RwdDict[item]) >= 100:
+                avg_agent_rwd=  agent_RwdDict[item][-100:]
+            else:
+                avg_agent_rwd =  agent_RwdDict[item]
+            avg_agent_rwd = mean(avg_agent_rwd)
+
+            self.sw.add_scalar(title,avg_agent_rwd, len(agent_RwdDict[item])-1)
+            
     def summaryWriter_close(self):
         self.sw.close()
         

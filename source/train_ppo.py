@@ -4,8 +4,6 @@ import warnings
 warnings.filterwarnings('ignore')
 import keyboard
 
-import time
-
 import numpy as np
 from env import Env
 from tqdm import tqdm
@@ -43,17 +41,17 @@ def getKeyPress(act):
 
 env = Env()
 
-memory = Memory(CONST.NUM_AGENTS, CONST.LEN_EPISODE)
+memory = Memory(CONST.NUM_AGENTS)
 rlAgent = PPO(env)
 
 
-NUM_EPISODES = CONST.NUM_EPISODES
-LEN_EPISODES = CONST.LEN_EPISODE
-UPDATE_TIMESTEP = CONST.UPDATE_STEP
+NUM_EPISODES = 30000
+LEN_EPISODES = 1000
+UPDATE_TIMESTEP = 6000
 curState = []
 newState= []
 reward_history = []
-mapNewVisPenalty_history = defaultdict(list)
+agent_history_dict = defaultdict(list)
 totalViewed = []
 dispFlag = False
 
@@ -75,6 +73,7 @@ for episode in tqdm(range(NUM_EPISODES)):
     epidoseLoss = 0
     episodeNewVisited = 0
     episodePenalty = 0
+    agent_episode_reward = [0]* CONST.NUM_AGENTS
     
     for step in range(LEN_EPISODES):
         timestep += 1
@@ -102,27 +101,28 @@ for episode in tqdm(range(NUM_EPISODES)):
         # do actions
         
         newRawState  = env.step(aActions)
-        agent_pos_list, current_map_state, local_heatmap_list, reward, done = newRawState
+        agent_pos_list, current_map_state, local_heatmap_list, minimap_list, local_reward_list, shared_reward, done = newRawState
         if step == LEN_EPISODES -1:
             done = True
         
-        # record only once for all agents and retrieve after calculating discounted reward
-        memory.rewards.append(reward)
-        memory.is_terminals.append(done)
+        for agent_index in range(CONST.NUM_AGENTS):
+            memory.rewards.append(local_reward_list[agent_index])
+            memory.is_terminals.append(done)
             
         
         # update nextState
         newState = rlAgent.formatInput(newRawState)
         
         if timestep % UPDATE_TIMESTEP == 0:
-            #a = time.time()
             loss = rlAgent.update(memory)
-            #print("update time: ", round(1000*(time.time() - a),2))
             memory.clear_memory()
             timestep = 0
         
         # record history
-        episodeReward += reward
+        
+        for i in range(CONST.NUM_AGENTS):
+            agent_episode_reward[i] += local_reward_list[i]
+        episodeReward += shared_reward
         # set current state for next step
         curState = newState
         
@@ -134,9 +134,13 @@ for episode in tqdm(range(NUM_EPISODES)):
     # Record history        
     reward_history.append(episodeReward)
     
+    for i in range(CONST.NUM_AGENTS):
+        agent_history_dict[i].append((agent_episode_reward[i]))
+    
+    
     # You may want to plot periodically instead of after every episode
     # Otherwise, things will slow
-    rlAgent.summaryWriter_addMetrics(episode, loss, reward_history, LEN_EPISODES)
+    rlAgent.summaryWriter_addMetrics(episode, loss, reward_history, agent_history_dict, LEN_EPISODES)
     if episode % 50 == 0:
         rlAgent.saveModel("checkpoints")
             

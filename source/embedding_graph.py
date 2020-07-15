@@ -15,7 +15,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class embedding_layer(nn.Module):
     def __init__(self):
         super(embedding_layer, self).__init__()
-        self.layer1 = nn.Sequential(nn.Conv2d(1, 32, (5, 5), 2),
+        self.layer1 = nn.Sequential(nn.Conv2d(2, 32, (5, 5), 2),
                                     nn.Conv2d(32, 64, (3, 3), 1),
                                     nn.Flatten())
 

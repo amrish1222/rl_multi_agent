@@ -41,7 +41,7 @@ def getKeyPress(act):
 
 env = Env()
 
-memory = Memory(CONST.NUM_AGENTS)
+memory = Memory(CONST.NUM_AGENTS, CONST.LEN_EPISODE)
 rlAgent = PPO(env)
 
 
@@ -85,7 +85,7 @@ for episode in tqdm(range(NUM_EPISODES)):
             env.render()
         
         # TODO save video
-        if episode%500 in range(10,15) and step%4 == 0:
+        if episode%500 in range(1,15) and step%4 == 0:
             env.save2Vid(episode, step)
 #        a = t()
         # Get agent actions
@@ -102,11 +102,15 @@ for episode in tqdm(range(NUM_EPISODES)):
         
         newRawState  = env.step(aActions)
         agent_pos_list, current_map_state, local_heatmap_list, minimap_list, local_reward_list, shared_reward, done = newRawState
+
+
+
+
         if step == LEN_EPISODES -1:
             done = True
         
         for agent_index in range(CONST.NUM_AGENTS):
-            memory.rewards.append(local_reward_list[agent_index])
+            memory.rewards.append(shared_reward)
             memory.is_terminals.append(done)
             
         

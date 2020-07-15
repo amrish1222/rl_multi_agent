@@ -305,7 +305,7 @@ class Env:
             local_reward_list.append(curSumR)
         sharedR = np.where((current_map<= 0), current_map, 0)
         shared_reward = np.sum(sharedR)
-        print(local_reward_list, shared_reward)
+        #print(local_reward_list, shared_reward)
         return local_reward_list, shared_reward
     
     def get_local_heatmap_list(self, current_map, agent_g_pos_list):

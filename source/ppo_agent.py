@@ -161,30 +161,17 @@ class ActorCritic(nn.Module):
         return action_list
     
     def evaluate(self, state, action):
-        action_logprob_list = []
-        state_value_list = []
-        dist_entropy_list = []
-        
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
 
-#        action_logprobs = torch.diag(dist.log_prob(action))
+        #        action_logprobs = torch.diag(dist.log_prob(action))
         action_logprobs = dist.log_prob(action)
-        action_logprobs = action_logprobs.view(-1,1)
+        action_logprobs = action_logprobs.view(-1, 1)
         dist_entropy = dist.entropy()
 
         state_value = self.value_layer(state)
 
-        action_logprob_list.append(action_logprobs)
-        state_value_list.append(torch.squeeze(state_value))
-        dist_entropy_list.append(dist_entropy)
-        
-        
-        action_logprobs = torch.cat(action_logprob_list)
-        state_value = torch.cat(state_value_list)
-        dist_entropy = torch.cat(dist_entropy_list)
-
-        return action_logprobs, state_value, dist_entropy
+        return action_logprobs, torch.squeeze(state_value), dist_entropy
         
 class PPO:
     def __init__(self, env):
@@ -220,7 +207,7 @@ class PPO:
         all_rewards = np.repeat(temp_rewards, memory.num_agents)
         # Normalizing the rewards:
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
-        
+
 
         minibatch_sz = memory.num_agents * memory.length_episode
 

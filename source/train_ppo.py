@@ -109,9 +109,10 @@ for episode in tqdm(range(NUM_EPISODES)):
         if step == LEN_EPISODES -1:
             done = True
         
-        for agent_index in range(CONST.NUM_AGENTS):
-            memory.rewards.append(shared_reward)
-            memory.is_terminals.append(done)
+
+        memory.rewards.append(shared_reward)
+        memory.is_terminals.append(done)
+
             
         
         # update nextState
@@ -125,7 +126,7 @@ for episode in tqdm(range(NUM_EPISODES)):
         # record history
         
         for i in range(CONST.NUM_AGENTS):
-            agent_episode_reward[i] += local_reward_list[i]
+            agent_episode_reward[i] += shared_reward
         episodeReward += shared_reward
         # set current state for next step
         curState = newState

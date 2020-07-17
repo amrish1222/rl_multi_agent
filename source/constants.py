@@ -37,6 +37,8 @@ class CONSTANTS:
         
         self.LOCAL_SZ = 25  # has to be odd number and  >=3
         
+        self.isSharedReward = True
+        
     def getGridCenterPts(self):
         x, y = np.meshgrid(np.arange(self.MAP_SIZE), np.arange(self.MAP_SIZE))
         x, y = x.flatten()+0.5, y.flatten() + 0.5

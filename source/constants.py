@@ -19,7 +19,7 @@ class CONSTANTS:
         
         self.UPDATE_STEP = 6000
         
-        self.NUM_AGENTS = 6
+        self.NUM_AGENTS = 2
         
         self.RENDER_ROWS = 3
         self.RENDER_COLUMNS = 2

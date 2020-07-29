@@ -12,9 +12,15 @@ import itertools
 import embedding_graph as EMG
 import time
 import dgl
+import constants
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-num_agents= 6
+
+
+#number of agents:
+
+num_agents = constants.NUM_AGENTS
+
 
 class Memory:
     def __init__(self, num_agents, steps):

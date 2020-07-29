@@ -51,6 +51,14 @@ class ActorCritic(nn.Module):
         self.GAT = EMG.GAT(250, 3)
 
 
+        self.CommonLayer= nn.Sequential(
+                    nn.Linear(500, 500),
+                    nn.ReLU(),
+                    nn.Linear(500, 500),
+                    nn.ReLU()
+                )
+
+
 
 
         self.reg1 = nn.Sequential(
@@ -86,7 +94,7 @@ class ActorCritic(nn.Module):
         if x.shape[0] == num_agents:
             self.graph.ndata['x'] = x
             # run the graph convolution (attention) to get new feature x and graph
-            x, self.graph = self.GAT(self.graph, self.graph.ndata['x'])
+            x = self.GAT(self.graph, self.graph.ndata['x'])
         # else doing batch
         else:
             batch_sz= x.shape[0] // num_agents
@@ -95,7 +103,8 @@ class ActorCritic(nn.Module):
 
             G = dgl.batch([self.graph] * batch_sz)
             G.ndata['x']= x
-            x, _ = self.GAT(G, G.ndata['x'])
+            x = self.GAT(G, G.ndata['x'])
+
 
 
 
@@ -103,9 +112,13 @@ class ActorCritic(nn.Module):
         x = torch.cat((self_in, x), 1)
 
 
+        #added common layer
+        x= self.CommonLayer(x)
 
 
         self.bacth_x = x
+
+
 
 
 
@@ -128,9 +141,10 @@ class ActorCritic(nn.Module):
             self_in = x
             self.graph.ndata['x'] = x
             # run the graph convolution (attention) to get new feature x and graph
-            x, self.graph = self.GAT(self.graph, self.graph.ndata['x'])
+            x  = self.GAT(self.graph, self.graph.ndata['x'])
             # concatenate => z=  (h0 || h1) as the output from GAT
             x = torch.cat((self_in, x), 1)
+            x= self.CommonLayer(x)
 
         # else doing batch
         else:
@@ -191,6 +205,11 @@ class PPO:
         self.MseLoss = nn.MSELoss()
         self.sw = SummaryWriter(log_dir=f"tf_log/demo_CNN{random.randint(0, 1000)}")
         print(f"Log Dir: {self.sw.log_dir}")
+
+
+
+        #for n, p in self.policy.named_parameters():
+        #    print(n, p.shape)
     
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
@@ -297,8 +316,19 @@ class PPO:
         self.sw.close()
         
     def saveModel(self, filePath):
-        torch.save(self.policy, f"{filePath}/{self.policy.__class__.__name__}.pt")
+        torch.save(self.policy.state_dict(), f"{filePath}/{self.policy.__class__.__name__}.pt")
+        torch.save(self.policy.embeding_layer.state_dict(), f"{filePath}/{self.policy.embeding_layer.__class__.__name__}.pt")
+        torch.save(self.policy.GAT.state_dict(),
+                   f"{filePath}/{self.policy.GAT.__class__.__name__}.pt")
+        torch.save(self.policy.reg1.state_dict(),
+                   f"{filePath}/reg1.pt")
+        torch.save(self.policy.reg2.state_dict(),
+                   f"{filePath}/reg2.pt")
     
-    def loadModel(self, filePath):
-        self.model = torch.load(filePath)
-        self.model.eval()
+    def loadModel(self, filePath, cpu = 0):
+
+        if cpu == 1:
+            self.policy.load_state_dict(torch.load(filePath, map_location=torch.device('cpu')))
+        else:
+            self.policy.load_state_dict(torch.load(filePath))
+        self.policy.eval()

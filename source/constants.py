@@ -20,9 +20,14 @@ class CONSTANTS:
         self.UPDATE_STEP = 6000
         
         self.NUM_AGENTS = 2
-        
-        self.RENDER_ROWS = 3
-        self.RENDER_COLUMNS = 2
+
+        if self.NUM_AGENTS % 2 == 0:
+            self.RENDER_ROWS = self.NUM_AGENTS // 2
+            self.RENDER_COLUMNS= 2
+        else:
+            #user defined
+            self.RENDER_ROWS = 1
+            self.RENDER_COLUMNS = 2
         
         self.MAX_AGENT_VEL= 1   
         

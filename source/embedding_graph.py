@@ -3,8 +3,9 @@ import numpy as np
 import networkx as nx
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-import gat_mod
-from gat_mod import GATConv
+#import gat_mod
+#from gat_mod import GATConv
+from dgl.nn import GATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,13 +16,27 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class embedding_layer(nn.Module):
     def __init__(self):
         super(embedding_layer, self).__init__()
-        self.layer1 = nn.Sequential(nn.Conv2d(2, 32, (5, 5), 2),
-                                    nn.Conv2d(32, 64, (3, 3), 1),
-                                    nn.Flatten())
+        self.layer1 = nn.Sequential(
+                    nn.Conv2d(2,16,(3,3),1,1),
+                    nn.BatchNorm2d(16),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2),
+                    nn.Conv2d(16,32,(3,3),1,1),
+                    nn.BatchNorm2d(32),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2),
+                    nn.Conv2d(32,32,(3,3),1,1),
+                    nn.BatchNorm2d(32),
+                    nn.ReLU(),
+                    nn.MaxPool2d(2),
+                    nn.Flatten()
+                    )
 
         self.layer2 = nn.Sequential(
-            nn.Linear(5184, 1000),
-            nn.Linear(1000, 250)
+            nn.Linear(3 * 3 * 32, 500),
+            nn.ReLU(),
+            nn.Linear(500, 250),
+            nn.ReLU(),
         )
 
         self.train()
@@ -60,16 +75,15 @@ class GAT(nn.Module):
         self.heads = heads
 
         self.conv1 = GATConv(in_feats, in_feats, heads)
-        self.conv2 = GATConv(in_feats, in_feats, heads)
+        #self.conv2 = GATConv(in_feats, in_feats, heads)
 
     def forward(self, g, inputs):
         # print("Detail of convolution result for each layer:")
 
-        l1, g = self.conv1(g, inputs)
+        l1 = self.conv1(g, inputs)
         # print("multiple heads before merge")
         # print((g.edata['a']))
         # print(l1)
-        g.edata['a'] = ave_heads(g.edata['a'], self.heads)
         l1 = ave_heads(l1, self.heads)
         # print(g.edata['a'])
         # print(f"The result after the 1st Conv layer: \n {l1}")
@@ -86,7 +100,7 @@ class GAT(nn.Module):
         # print(f"The result after the 2nd Conv layer: \n {l2}")
         # print((g.edata))
         # combining to get final features for all nodes (+)
-        return l1, g
+        return l1
 
 
 """

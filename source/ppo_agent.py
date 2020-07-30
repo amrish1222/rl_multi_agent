@@ -12,10 +12,12 @@ import itertools
 import embedding_graph as EMG
 import time
 import dgl
-import constants
+from constants import CONSTANTS
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+constants= CONSTANTS()
 
 #number of agents:
 

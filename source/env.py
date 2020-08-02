@@ -20,6 +20,8 @@ class Env:
     def __init__(self):
         self.timeStep = CONST.TIME_STEP
         # getting obstacle maps and visibility maps
+        self.cap= 400
+        
         self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.initObsMaps_Vsbs()
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
 
@@ -28,7 +30,6 @@ class Env:
         # modified: decay rate:
         self.decay= 1
         # modified: cap the upperbound of penalty
-        self.cap= 400
 
 
         #save video
@@ -47,6 +48,8 @@ class Env:
         # agent Pos = 100
         
         obstacle_viewed = np.copy(obstacle_map)
+        
+        obstacle_viewed = np.where(obstacle_viewed == 0, -1* self.cap, obstacle_viewed)
         
         #initialize agents at random location
         agents = []

@@ -165,7 +165,7 @@ class PPO:
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
         
-        minibatch_sz = 1000
+        minibatch_sz = 6000
             
         mem_sz = len(memory.states)
         # Optimize policy for K epochs:

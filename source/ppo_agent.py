@@ -115,6 +115,21 @@ class ActorCritic(nn.Module):
                 action_list.append(action[agent_index].item())
         return action_list
     
+    def act_max(self, state, memory, num_agents):
+        with torch.no_grad():
+            state = torch.from_numpy(state).float().to(device)
+            action_probs = self.action_layer(state)
+            dist = Categorical(action_probs)
+            action = dist.sample()
+        
+            action_list = []
+            for agent_index in range(num_agents):
+                memory.states.append(state[agent_index])
+                memory.actions.append(action[agent_index])
+                memory.logprobs.append(dist.log_prob(action[agent_index])[agent_index])
+                action_list.append(action[agent_index].item())
+        return action_list
+    
     def evaluate(self, state, action):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)

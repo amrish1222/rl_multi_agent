@@ -19,7 +19,7 @@ class CONSTANTS:
         self.RENDER_ROWS = 1
         self.RENDER_COLUMNS = 1
         
-        self.LEN_EPISODE = 3000
+        self.LEN_EPISODE = 1000
         
         self.MAX_AGENT_VEL= 1   
         

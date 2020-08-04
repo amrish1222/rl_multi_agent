@@ -36,7 +36,7 @@ class ActorCritic(nn.Module):
 
         # actor
         self.feature1 = nn.Sequential(
-                    nn.Conv2d(2,16,(3,3),1,1),
+                    nn.Conv2d(1,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -61,7 +61,7 @@ class ActorCritic(nn.Module):
         
         # critic
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(2,16,(3,3),1,1),
+                    nn.Conv2d(1,16,(3,3),1,1),
                     nn.BatchNorm2d(16),
                     nn.ReLU(),
                     nn.MaxPool2d(2),
@@ -180,7 +180,7 @@ class PPO:
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
         
-        minibatch_sz = 6000
+        minibatch_sz = CONST.NUM_AGENTS * CONST.LEN_EPISODE
             
         mem_sz = len(memory.states)
         # Optimize policy for K epochs:
@@ -227,7 +227,7 @@ class PPO:
     def formatInput(self, states):
         out = []
         for i in range(len(states[2])):
-            temp = [states[2][i], states[3][i]]
+            temp = [states[3][i]]
             out.append(temp)
         return np.array(out)
     
@@ -262,8 +262,12 @@ class PPO:
         self.sw.close()
         
     def saveModel(self, filePath):
-        torch.save(self.policy, f"{filePath}/{self.policy.__class__.__name__}.pt")
+        torch.save(self.policy.state_dict(), f"{filePath}/{self.policy.__class__.__name__}.pt")
     
-    def loadModel(self, filePath):
-        self.model = torch.load(filePath)
-        self.model.eval()
+    def loadModel(self, filePath, cpu = 0):
+
+        if cpu == 1:
+            self.policy.load_state_dict(torch.load(filePath, map_location=torch.device('cpu')))
+        else:
+            self.policy.load_state_dict(torch.load(filePath))
+        self.policy.eval()

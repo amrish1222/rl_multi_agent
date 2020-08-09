@@ -69,7 +69,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg1 = nn.Sequential(
-                    nn.Linear(6*6*32, 500),
+                    nn.Linear(2*2*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -111,7 +111,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg2 = nn.Sequential(
-                    nn.Linear(6*6*32, 500),
+                    nn.Linear(2*2*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),

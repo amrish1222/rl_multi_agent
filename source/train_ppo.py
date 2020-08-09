@@ -41,7 +41,7 @@ def getKeyPress(act):
 
 env = Env()
 
-memory = Memory(CONST.NUM_AGENTS)
+memory = Memory()
 rlAgent = PPO(env)
 
 
@@ -94,7 +94,9 @@ for episode in tqdm(range(NUM_EPISODES)):
 #             action = rlAgent.policy.act(curState[i], memory,i)
 #             aActions.append(action)
 # =============================================================================
-        aActions = rlAgent.policy_old.act(curState, memory, CONST.NUM_AGENTS)
+        aActions = []
+        for i in range(CONST.NUM_AGENTS):
+            aActions.append(rlAgent.policy_old.act(curState[0], memory))
 #        b = t()
 #        print("step: ", round(b-a,2))
         

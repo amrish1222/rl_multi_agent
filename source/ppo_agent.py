@@ -212,9 +212,12 @@ class PPO:
         # Normalizing the rewards:
 #        all_rewards = torch.tensor(all_rewards).to(device)
 #        all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
-        all_rewards = np.array(all_rewards)
+
+#        all_rewards = np.array(all_rewards)
+#        all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
+
+        all_rewards = torch.tensor(all_rewards).to(device)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
-        
         
         minibatch_sz = CONST.NUM_AGENTS * CONST.LEN_EPISODE
             
@@ -234,7 +237,7 @@ class PPO:
                 old_states = torch.stack(mini_old_states).to(device).detach()
                 old_actions = torch.stack(mini_old_actions).to(device).detach()
                 old_logprobs = torch.stack(mini_old_logprobs).to(device).detach()
-                rewards = torch.from_numpy(mini_rewards).float().to(device)
+                rewards = mini_rewards #torch.from_numpy(mini_rewards).float().to(device)
                 
                 prev = i
                 

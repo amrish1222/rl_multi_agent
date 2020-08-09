@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-#    if keyboard.is_pressed('['):
-#        act = 1
-#    elif keyboard.is_pressed(']'):
-#        act = 2
+    if keyboard.is_pressed('['):
+        act = 1
+    elif keyboard.is_pressed(']'):
+        act = 2
     return act
 
 
@@ -47,7 +47,7 @@ rlAgent = PPO(env)
 
 NUM_EPISODES = 30000
 LEN_EPISODES = 1000
-UPDATE_TIMESTEP = 6000
+UPDATE_TIMESTEP = 1000
 curState = []
 newState= []
 reward_history = []
@@ -94,7 +94,7 @@ for episode in tqdm(range(NUM_EPISODES)):
 #             action = rlAgent.policy.act(curState[i], memory,i)
 #             aActions.append(action)
 # =============================================================================
-        aActions = rlAgent.policy.act(curState, memory, CONST.NUM_AGENTS)
+        aActions = rlAgent.policy_old.act(curState, memory, CONST.NUM_AGENTS)
 #        b = t()
 #        print("step: ", round(b-a,2))
         

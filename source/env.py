@@ -49,7 +49,7 @@ class Env:
         
         obstacle_viewed = np.copy(obstacle_map)
         
-        obstacle_viewed = np.where(obstacle_viewed == 0, -1* self.cap, obstacle_viewed)
+#        obstacle_viewed = np.where(obstacle_viewed == 0, -1* self.cap, obstacle_viewed)
         
         #initialize agents at random location
         agents = []

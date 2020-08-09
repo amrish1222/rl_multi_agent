@@ -35,23 +35,41 @@ class ActorCritic(nn.Module):
         super(ActorCritic, self).__init__()
 
         # actor
+#        self.feature1 = nn.Sequential(
+#                    nn.Conv2d(1,16,(3,3),1,1),
+#                    nn.BatchNorm2d(16),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Conv2d(16,32,(3,3),1,1),
+#                    nn.BatchNorm2d(32),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Conv2d(32,32,(3,3),1,1),
+#                    nn.BatchNorm2d(32),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Flatten()
+#                    )
+#        self.reg1 = nn.Sequential(
+#                    nn.Linear(3*3*32, 500),
+#                    nn.ReLU(),
+#                    nn.Linear(500, 256),
+#                    nn.ReLU(),
+#                    nn.Linear(256, len(env.get_action_space())),
+#                    nn.Softmax(dim=-1)
+#                )
+        
         self.feature1 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
-                    nn.BatchNorm2d(16),
+                    nn.Conv2d(1,16,(8,8),4,1),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(16,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
+                    nn.Conv2d(16,32,(4,4),2,1),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
                     nn.Conv2d(32,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
                     nn.Flatten()
                     )
         self.reg1 = nn.Sequential(
-                    nn.Linear(3*3*32, 500),
+                    nn.Linear(2*2*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -60,23 +78,40 @@ class ActorCritic(nn.Module):
                 )
         
         # critic
+#        self.feature2 = nn.Sequential(
+#                    nn.Conv2d(1,16,(3,3),1,1),
+#                    nn.BatchNorm2d(16),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Conv2d(16,32,(3,3),1,1),
+#                    nn.BatchNorm2d(32),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Conv2d(32,32,(3,3),1,1),
+#                    nn.BatchNorm2d(32),
+#                    nn.ReLU(),
+#                    nn.MaxPool2d(2),
+#                    nn.Flatten()
+#                    )
+#        self.reg2 = nn.Sequential(
+#                    nn.Linear(3*3*32, 500),
+#                    nn.ReLU(),
+#                    nn.Linear(500, 256),
+#                    nn.ReLU(),
+#                    nn.Linear(256, 1)
+#                )
+        
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(1,16,(3,3),1,1),
-                    nn.BatchNorm2d(16),
+                    nn.Conv2d(1,16,(8,8),4,1),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
-                    nn.Conv2d(16,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
+                    nn.Conv2d(16,32,(4,4),2,1),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
                     nn.Conv2d(32,32,(3,3),1,1),
-                    nn.BatchNorm2d(32),
                     nn.ReLU(),
-                    nn.MaxPool2d(2),
                     nn.Flatten()
                     )
         self.reg2 = nn.Sequential(
-                    nn.Linear(3*3*32, 500),
+                    nn.Linear(2*2*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -155,8 +190,8 @@ class PPO:
         
         self.policy = ActorCritic(env).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
-#        self.policy_old = ActorCritic(env).to(device)
-#        self.policy_old.load_state_dict(self.policy.state_dict())
+        self.policy_old = ActorCritic(env).to(device)
+        self.policy_old.load_state_dict(self.policy.state_dict())
         
         self.MseLoss = nn.MSELoss()
         self.sw = SummaryWriter(log_dir=f"tf_log/demo_CNN{random.randint(0, 1000)}")
@@ -221,7 +256,7 @@ class PPO:
                 self.optimizer.step()
         
         # Copy new weights into old policy:
-#        self.policy_old.load_state_dict(self.policy.state_dict())
+        self.policy_old.load_state_dict(self.policy.state_dict())
         return advantages.mean().item()
         
     def formatInput(self, states):

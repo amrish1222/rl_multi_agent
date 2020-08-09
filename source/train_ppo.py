@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-    if keyboard.is_pressed('['):
-        act = 1
-    elif keyboard.is_pressed(']'):
-        act = 2
+#    if keyboard.is_pressed('['):
+#        act = 1
+#    elif keyboard.is_pressed(']'):
+#        act = 2
     return act
 
 
@@ -101,6 +101,7 @@ for episode in tqdm(range(NUM_EPISODES)):
         # do actions
         
         newRawState  = env.step(aActions)
+#        newRawState  = env.step([0])
         agent_pos_list, current_map_state, local_heatmap_list, minimap_list, local_reward_list, shared_reward, done = newRawState
         if step == LEN_EPISODES -1:
             done = True
@@ -129,6 +130,7 @@ for episode in tqdm(range(NUM_EPISODES)):
             else:
                 agent_episode_reward[i] += local_reward_list[i]
         episodeReward += shared_reward
+        print(shared_reward, step)
         # set current state for next step
         curState = newState
         

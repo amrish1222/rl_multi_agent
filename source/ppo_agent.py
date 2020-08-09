@@ -69,7 +69,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg1 = nn.Sequential(
-                    nn.Linear(2*2*32, 500),
+                    nn.Linear(6*6*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -111,7 +111,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg2 = nn.Sequential(
-                    nn.Linear(2*2*32, 500),
+                    nn.Linear(6*6*32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -145,9 +145,10 @@ class ActorCritic(nn.Module):
             action_list = []
             for agent_index in range(num_agents):
                 memory.states.append(state[agent_index])
-                memory.actions.append(action[agent_index])
+                memory.actions.append(action[agent_index].view(1))
                 memory.logprobs.append(dist.log_prob(action[agent_index])[agent_index])
                 action_list.append(action[agent_index].item())
+#                action_list.append(action[agent_index].view(1))
         return action_list
     
     def act_max(self, state, memory, num_agents):
@@ -169,8 +170,8 @@ class ActorCritic(nn.Module):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
         
-#        action_logprobs = torch.diag(dist.log_prob(action))
-        action_logprobs = dist.log_prob(action)
+        action_logprobs = torch.diag(dist.log_prob(action))
+#        action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
         
@@ -186,7 +187,7 @@ class PPO:
         self.eps_clip = 0.2
         self.K_epochs = 4
         
-        torch.manual_seed(2)
+        torch.manual_seed(5)
         
         self.policy = ActorCritic(env).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
@@ -211,7 +212,7 @@ class PPO:
         # Normalizing the rewards:
 #        all_rewards = torch.tensor(all_rewards).to(device)
 #        all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
-        all_rewards =np.array(all_rewards)
+        all_rewards = np.array(all_rewards)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
         

@@ -181,7 +181,7 @@ class Env:
         
         self.local_heatmap_list = self.get_local_heatmap_list(self.current_map_state, agent_g_pos_list)
         
-        self.mini_map = self.get_mini_map(self.current_map_state, 0.5, agent_g_pos_list)
+        self.mini_map = self.get_mini_map(self.current_map_state, 1, agent_g_pos_list)
         
         local_reward_list, shared_reward = self.get_reward_local(self.local_heatmap_list, self.current_map_state)
         

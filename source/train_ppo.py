@@ -130,7 +130,7 @@ for episode in tqdm(range(NUM_EPISODES)):
             else:
                 agent_episode_reward[i] += local_reward_list[i]
         episodeReward += shared_reward
-        print(shared_reward, step)
+#        print(shared_reward, step)
         # set current state for next step
         curState = newState
         

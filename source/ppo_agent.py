@@ -183,11 +183,11 @@ class PPO:
     def __init__(self, env):
         self.lr = 0.000002
         self.betas = (0.9, 0.999)
-        self.gamma = 1.0
+        self.gamma = 0.99
         self.eps_clip = 0.2
         self.K_epochs = 4
         
-        torch.manual_seed(5)
+        torch.manual_seed(2)
         
         self.policy = ActorCritic(env).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)

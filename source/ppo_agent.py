@@ -44,7 +44,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg1 = nn.Sequential(
-                    nn.Linear(6*6*32 + 2, 500),
+                    nn.Linear(6*6*32 , 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -77,7 +77,7 @@ class ActorCritic(nn.Module):
                     nn.Flatten()
                     )
         self.reg2 = nn.Sequential(
-                    nn.Linear(6*6*32 + 2, 500),
+                    nn.Linear(6*6*32 , 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -101,13 +101,11 @@ class ActorCritic(nn.Module):
         
     def action_layer(self, x1, x2):
         x = self.feature1(x1)
-        x = torch.cat((x,x2), dim = 1)
         x = self.reg1(x)
         return x
     
     def value_layer(self, x1, x2):
         x = self.feature2(x1)
-        x = torch.cat((x,x2), dim = 1)
         x = self.reg2(x)
         return x
         

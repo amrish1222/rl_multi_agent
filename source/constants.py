@@ -14,10 +14,12 @@ class CONSTANTS:
         self.TIME_STEP=1
         
         
-        self.NUM_AGENTS = 6
+        self.NUM_AGENTS = 2
         
-        self.RENDER_ROWS = 3
-        self.RENDER_COLUMNS = 2
+        self.RENDER_ROWS = 2
+        self.RENDER_COLUMNS = 1
+        
+        self.LEN_EPISODE = 1000
         
         self.MAX_AGENT_VEL= 1   
         
@@ -36,6 +38,8 @@ class CONSTANTS:
         self.VISIBILITY_PENALTY = 30
         
         self.LOCAL_SZ = 25  # has to be odd number and  >=3
+        
+        self.isSharedReward = True
         
     def getGridCenterPts(self):
         x, y = np.meshgrid(np.arange(self.MAP_SIZE), np.arange(self.MAP_SIZE))

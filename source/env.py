@@ -6,6 +6,8 @@
 import numpy as np
 import random
 import cv2
+import time
+import skimage.measure
 
 from constants import CONSTANTS as K
 CONST = K()
@@ -18,6 +20,8 @@ class Env:
     def __init__(self):
         self.timeStep = CONST.TIME_STEP
         # getting obstacle maps and visibility maps
+        self.cap= 400
+        
         self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.initObsMaps_Vsbs()
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
 
@@ -26,7 +30,6 @@ class Env:
         # modified: decay rate:
         self.decay= 1
         # modified: cap the upperbound of penalty
-        self.cap= 400
 
 
         #save video
@@ -43,9 +46,10 @@ class Env:
         # viewed = 255
         # obstacle = 150
         # agent Pos = 100
-        # adversary Pos = 200
         
         obstacle_viewed = np.copy(obstacle_map)
+        
+#        obstacle_viewed = np.where(obstacle_viewed == 0, -1* self.cap, obstacle_viewed)
         
         #initialize agents at random location
         agents = []
@@ -69,6 +73,8 @@ class Env:
         current_map_state = self.update_map_at_pos(agent_g_pos_list, obstacle_viewed, 100)
         
         self.local_heatmap_list = self.get_local_heatmap_list(current_map_state, agent_g_pos_list)
+        
+        self.mini_map = self.get_mini_map(current_map_state, 0.5, agent_g_pos_list)
         
         return obstacle_viewed, current_map_state, agents, agents_local_view_list
 
@@ -175,11 +181,13 @@ class Env:
         
         self.local_heatmap_list = self.get_local_heatmap_list(self.current_map_state, agent_g_pos_list)
         
-        reward = self.get_reward(self.current_map_state)
+        self.mini_map = self.get_mini_map(self.current_map_state, 0.5, agent_g_pos_list)
+        
+        local_reward_list, shared_reward = self.get_reward_local(self.local_heatmap_list, self.current_map_state)
         
         done = False
         
-        return agent_pos_list, self.current_map_state, self.local_heatmap_list, reward, done
+        return agent_pos_list, self.current_map_state, self.local_heatmap_list, self.mini_map, local_reward_list, shared_reward, done
     
     def reset(self):
         
@@ -197,6 +205,7 @@ class Env:
         heatmapshow = np.rot90(heatmap, 1)
 
         heatmapshow = np.where(heatmapshow == 150, 20, heatmapshow)
+        heatmapshow = np.where(heatmapshow == 200, 150, heatmapshow)
         heatmapshow = np.where(heatmapshow < 0, -1 * heatmapshow * 255 / cap, -1 * heatmapshow)
         heatmapshow = np.where(heatmapshow >= self.cap, 255, heatmapshow)
 
@@ -256,6 +265,29 @@ class Env:
 #        displayImg = cv2.resize(agent_views_list[0],(200,200),interpolation = cv2.INTER_AREA)
         cv2.imshow("Agent Views", displayImg)
         
+        agent_views_list = []
+        for agent_indx, minimap in enumerate(self.mini_map):
+            
+            temp = self.heatmap_render_prep(minimap)
+            
+            agent_views_list.append(temp)
+        
+        rows2 = []
+        for j in range(CONST.RENDER_ROWS):
+            rows2.append(np.hstack((agent_views_list[j*CONST.RENDER_COLUMNS : (j+1) * CONST.RENDER_COLUMNS])))
+        
+        agent_views2 = np.vstack((rows2))
+        
+        minimapImg = cv2.resize(agent_views2,(CONST.RENDER_COLUMNS* 200,CONST.RENDER_ROWS*200),interpolation = cv2.INTER_AREA)
+        
+#        displayImg = cv2.resize(agent_views_list[0],(200,200),interpolation = cv2.INTER_AREA)
+        cv2.imshow("Minimap Views", minimapImg)
+        
+#        mini_heatmap_img = self.heatmap_render_prep(self.mini_map[0])
+#        
+#        mini_heatmap_img = cv2.resize(mini_heatmap_img,(350,350),interpolation = cv2.INTER_AREA)
+#        
+#        cv2.imshow("Mini Heat Map", mini_heatmap_img)
         cv2.waitKey(1)
     
     def get_reward(self, current_map):
@@ -266,6 +298,18 @@ class Env:
 
 
         return curSumR
+    
+    def get_reward_local(self, local_map_list, current_map):
+        local_reward_list = []
+        #sum up reward on all free pixels
+        for local_map in local_map_list:
+            actualR = np.where((local_map<= 0), local_map, 0)
+            curSumR = np.sum(actualR)
+            local_reward_list.append(curSumR)
+        sharedR = np.where((current_map<= 0), current_map, 0)
+        shared_reward = np.sum(sharedR)
+#        print(local_reward_list, shared_reward)
+        return local_reward_list, shared_reward
     
     def get_local_heatmap_list(self, current_map, agent_g_pos_list):
         local_heatmap_list = []
@@ -290,7 +334,32 @@ class Env:
             local_heatmap_list.append(local_view.T)
         return local_heatmap_list
 
+    def get_mini_map(self, current_map, ratio, agent_g_pos):
+        num_windows = int(current_map.shape[0] * ratio)
+        
+        
+        window_sz = int(1/ratio)
+        
+        mini_obs = cv2.resize(self.obstacle_map,(num_windows,num_windows),interpolation = cv2.INTER_AREA)
+        mini_obs = np.where(mini_obs > 0, 150, 0)
+        
+        decay_map = np.where(current_map < 0, current_map, 0)
+        mini_decay = skimage.measure.block_reduce(decay_map, (window_sz,window_sz), np.min)
 
+        mini_heatmap = np.where(mini_decay < 0, mini_decay, mini_obs)
+
+
+        for gpos in agent_g_pos:
+            mini_heatmap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 100
+        
+
+        agent_minimap_list = []
+        for gpos in agent_g_pos:
+            agent_minimap = np.copy(mini_heatmap)
+            agent_minimap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 200
+            agent_minimap_list.append(agent_minimap)
+        return agent_minimap_list
+          
     def save2Vid(self, episode, step):
 
         img = np.copy(self.current_map_state)

@@ -34,12 +34,12 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
 #        
-        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
-        obsMaps.append(mp)
-        vsbs.append(vsb)
-        vsbPoly =  self.getVisibilityPolys(vsb, mp)
-        vsbPolys.append(vsbPoly)
-        numOpenCellsArr.append(np.count_nonzero(mp==0))
+#        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
+#        obsMaps.append(mp)
+#        vsbs.append(vsb)
+#        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+#        vsbPolys.append(vsbPoly)
+#        numOpenCellsArr.append(np.count_nonzero(mp==0))
 #        
 #        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle3())
 #        obsMaps.append(mp)
@@ -54,6 +54,13 @@ class Obstacle:
 #        vsbPoly =  self.getVisibilityPolys(vsb, mp)
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
+        
+        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2R())
+        obsMaps.append(mp)
+        vsbs.append(vsb)
+        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+        vsbPolys.append(vsbPoly)
+        numOpenCellsArr.append(np.count_nonzero(mp==0))
 
         
         b = time.time()
@@ -303,6 +310,34 @@ class Obstacle:
                 [42,10],
                 [40,10],
                 [40,6]]
+        obsList.append([geom, isHole])
+        
+        return obsList
+    
+    def obstacle2R(self):
+        obsList = []
+        # add points in CW order and 
+        isHole = True
+        geom = [[15,30],
+                [18,30],
+                [30,30],
+                [30, 20],
+                [30,15],
+                [33,15],
+                [33,5],
+                [24,5],
+                [24,15],
+                [27,15],
+                [27,20],
+                [18,20],
+                [18,15],
+                [21,15],
+                [21,5],
+                [12,5],
+                [12,15],
+                [15,15],
+                [15,20],
+               ]
         obsList.append([geom, isHole])
         
         return obsList

@@ -300,8 +300,11 @@ class PPO:
     def summaryWriter_close(self):
         self.sw.close()
         
-    def saveModel(self, filePath):
-        torch.save(self.policy.state_dict(), f"{filePath}/{self.policy.__class__.__name__}.pt")
+    def saveModel(self, filePath, per_save = False, episode =0):
+        if per_save == False:
+            torch.save(self.policy.state_dict(), f"{filePath}/{self.policy.__class__.__name__}.pt")
+        else:
+            torch.save(self.policy.state_dict(), f"{filePath}/{self.policy.__class__.__name__}_{episode}.pt")
     
     def loadModel(self, filePath, cpu = 0):
 

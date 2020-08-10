@@ -60,7 +60,7 @@ class ActorCritic(nn.Module):
 #                )
         
         self.feature1 = nn.Sequential(
-                    nn.Conv2d(1,16,(8,8),4,1),
+                    nn.Conv2d(2,16,(8,8),4,1),
                     nn.ReLU(),
                     nn.Conv2d(16,32,(4,4),2,1),
                     nn.ReLU(),
@@ -102,7 +102,7 @@ class ActorCritic(nn.Module):
 #                )
         
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(1,16,(8,8),4,1),
+                    nn.Conv2d(2,16,(8,8),4,1),
                     nn.ReLU(),
                     nn.Conv2d(16,32,(4,4),2,1),
                     nn.ReLU(),
@@ -266,7 +266,7 @@ class PPO:
     def formatInput(self, states):
         out = []
         for i in range(len(states[2])):
-            temp = [states[3][i]]
+            temp = [states[2][i],states[3][i]]
             out.append(temp)
         return np.array(out)
     

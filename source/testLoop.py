@@ -48,10 +48,10 @@ env = Env()
 memory = Memory(CONST.NUM_AGENTS)
 rlAgent = PPO(env)
 
-rlAgent.loadModel("checkpoints/baseline2_2R_1Ag_maxPen.pt")
+rlAgent.loadModel("checkpoints/ActorCritic.pt", 1)
 
 NUM_EPISODES = 3
-LEN_EPISODES = 5000
+LEN_EPISODES = 2000
 UPDATE_TIMESTEP = 6000
 curState = []
 newState = []
@@ -122,6 +122,9 @@ for episode in tqdm(range(NUM_EPISODES)):
 
         # update nextState
         newState = rlAgent.formatInput(newRawState)
+
+        # set current state for next step
+        curState = newState
 
 
 

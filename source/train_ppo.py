@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-#    if keyboard.is_pressed('['):
-#        act = 1
-#    elif keyboard.is_pressed(']'):
-#        act = 2
+    if keyboard.is_pressed('['):
+        act = 1
+    elif keyboard.is_pressed(']'):
+        act = 2
     return act
 
 
@@ -44,6 +44,7 @@ env = Env()
 memory = Memory(CONST.NUM_AGENTS)
 rlAgent = PPO(env)
 
+rlAgent.loadModel("checkpoints/ActorCritic_10000.pt", 1)
 
 NUM_EPISODES = 30000
 LEN_EPISODES = 1000

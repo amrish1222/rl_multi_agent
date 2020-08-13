@@ -44,6 +44,7 @@ env = Env()
 memory = Memory(CONST.NUM_AGENTS)
 rlAgent = PPO(env)
 
+rlAgent.loadModel("checkpoints/ActorCritic_10000.pt", 1)
 
 NUM_EPISODES = 30000
 LEN_EPISODES = 1000
@@ -151,6 +152,9 @@ for episode in tqdm(range(NUM_EPISODES)):
     rlAgent.summaryWriter_addMetrics(episode, loss, reward_history, agent_history_dict, LEN_EPISODES)
     if episode % 50 == 0:
         rlAgent.saveModel("checkpoints")
+
+    if episode % 1000 == 0:
+        rlAgent.saveModel("checkpoints", True, episode)
             
     
 rlAgent.saveModel("checkpoints")

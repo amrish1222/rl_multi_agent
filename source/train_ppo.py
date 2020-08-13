@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-    if keyboard.is_pressed('['):
-        act = 1
-    elif keyboard.is_pressed(']'):
-        act = 2
+#    if keyboard.is_pressed('['):
+#        act = 1
+#    elif keyboard.is_pressed(']'):
+#        act = 2
     return act
 
 

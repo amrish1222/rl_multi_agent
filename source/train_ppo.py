@@ -44,7 +44,7 @@ env = Env()
 memory = Memory(CONST.NUM_AGENTS)
 rlAgent = PPO(env)
 
-rlAgent.loadModel("checkpoints/ActorCritic_10000.pt", 1)
+#rlAgent.loadModel("checkpoints/ActorCritic_10000.pt", 1)
 
 NUM_EPISODES = 30000
 LEN_EPISODES = 1000

@@ -15,27 +15,20 @@ class embedding_layer(nn.Module):
     def __init__(self):
         super(embedding_layer, self).__init__()
         self.layer1 = nn.Sequential(
-                    nn.Conv2d(2,16,(8,8),4,1),
+                    nn.Conv2d(2,32,(8,8),4,1),
                     nn.ReLU(),
-                    nn.Conv2d(16,32,(4,4),2,1),
+                    nn.Conv2d(32,64,(4,4),2,1),
                     nn.ReLU(),
-                    nn.Conv2d(32,32,(3,3),1,1),
+                    nn.Conv2d(64,64,(3,3),1,1),
                     nn.ReLU(),
                     nn.Flatten()
                     )
 
-        self.layer2 = nn.Sequential(
-            nn.Linear(2 * 2 * 32, 500),
-            nn.ReLU(),
-            nn.Linear(500, 250),
-            nn.ReLU(),
-        )
 
         self.train()
 
     def forward(self, x):
         x = self.layer1(x)
-        x = self.layer2(x)
         return x
 
 

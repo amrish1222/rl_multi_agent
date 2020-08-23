@@ -70,10 +70,10 @@ class ActorCritic(nn.Module):
         # added fully connected graph generator
         self.graph = EMG.FC_graph(CONST.NUM_AGENTS)
         # added GAT network: with #attention head = 3
-        self.GAT = EMG.GAT(250, 3)
+        self.GAT = EMG.GAT(2 * 2 * 64, 3)
 
         self.CommonLayer = nn.Sequential(
-            nn.Linear(500, 500),
+            nn.Linear(4 * 2 * 64, 500),
             nn.ReLU(),
             nn.Linear(500, 500),
             nn.ReLU()

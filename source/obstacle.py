@@ -9,6 +9,7 @@ import numpy as np
 from constants import CONSTANTS as K
 from matplotlib.path import Path
 from collections import defaultdict
+import copy
 from functools import partial
 CONST = K()
 
@@ -55,13 +56,19 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
         
-        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle_4R())
+#        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle_4R())
+#        obsMaps.append(mp)
+#        vsbs.append(vsb)
+#        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+#        vsbPolys.append(vsbPoly)
+#        numOpenCellsArr.append(np.count_nonzero(mp==0))
+
+        mp, vsb = self.getObstacleMap(emptyMap, self.obstacleMR())
         obsMaps.append(mp)
         vsbs.append(vsb)
         vsbPoly =  self.getVisibilityPolys(vsb, mp)
         vsbPolys.append(vsbPoly)
         numOpenCellsArr.append(np.count_nonzero(mp==0))
-
         
         b = time.time()
         print("create vsb Polys:", round(1000*(b-a), 3))
@@ -379,6 +386,86 @@ class Obstacle:
                 [15,15],
                 [15,20],
                ]
+        obsList.append([geom, isHole])
+        
+        return obsList
+    
+    def twist_mirror(self, geom):
+        
+        for g in geom:
+            g[0], g[1] = 100 - g[0], 100 - g[1]
+    
+    def obstacleMR(self):
+        obsList = []
+        # add points in CW order and 
+        isHole = True
+        geom = [[5,5],
+                [5,26],
+                [15,26],
+                [15,29],
+                [5,29],
+                [5,39],
+                [25,39],
+                [25,34],
+                [28,34],
+                [28,46],
+                [25,46],
+                [25,43],
+                [5,43],
+                [5,57],
+                [25,57],
+                [25,54],
+                [28,54],
+                [28,66],
+                [25,66],
+                [25,61],
+                [5,61],
+                [5,71],
+                [15,71],
+                [15,74],
+                [5,74],
+                [5,95],
+                [20,95],
+                [20,83],
+                [25,83],
+                [25,73],
+                [35,73],
+                [35,76],
+                [28,76],
+                [28,86],
+                [23,86],
+                [23,95],
+                [47,95],
+                [47,76],
+                [44,76],
+                [44,73],
+                [56,73],
+                [56,76],
+                [53,76],
+                [53,95],
+                [77,95],
+                [77,86],
+                [72,86],
+                [72,76],
+                [65,76],
+                [65,73],
+                [75,73],
+                [75,83],
+                [80,83],
+                [80,95],
+                [95,95]]
+        
+        geom_temp = copy.deepcopy(geom)
+        self.twist_mirror(geom_temp)
+        geom += geom_temp[1:-1]
+                
+        obsList.append([geom, isHole])
+        
+        isHole = False
+        geom = [[40,40],
+                [40,60],
+                [60,60],
+                [60,40]]
         obsList.append([geom, isHole])
         
         return obsList

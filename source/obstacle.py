@@ -55,7 +55,7 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
         
-        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle_4R())
+        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
         obsMaps.append(mp)
         vsbs.append(vsb)
         vsbPoly =  self.getVisibilityPolys(vsb, mp)

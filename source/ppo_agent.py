@@ -38,7 +38,6 @@ class ActorCritic(nn.Module):
     def __init__(self, env):
         super(ActorCritic, self).__init__()
 
-        self.bacth_x = None
 
         # actor
 #        self.feature1 = nn.Sequential(
@@ -70,17 +69,17 @@ class ActorCritic(nn.Module):
         # added fully connected graph generator
         self.graph = EMG.FC_graph(CONST.NUM_AGENTS)
         # added GAT network: with #attention head = 3
-        self.GAT = EMG.GAT(2 * 2 * 64, 3)
+        self.GAT = EMG.GAT(2 * 2 * 32, 3)
 
-        self.CommonLayer = nn.Sequential(
-            nn.Linear(4 * 2 * 64, 500),
-            nn.ReLU(),
-            nn.Linear(500, 500),
-            nn.ReLU()
-        )
-        
+
+
+
+
+
 
         self.reg1 = nn.Sequential(
+                    nn.Linear(2 * 2 * 64, 500),
+                    nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
                     nn.Linear(256, len(env.get_action_space())),
@@ -110,9 +109,20 @@ class ActorCritic(nn.Module):
 #                    nn.ReLU(),
 #                    nn.Linear(256, 1)
 #                )
-        
+
+        self.feature2 = nn.Sequential(
+            nn.Conv2d(2, 16, (8, 8), 4, 1),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, (4, 4), 2, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, (3, 3), 1, 1),
+            nn.ReLU(),
+            nn.Flatten()
+        )
 
         self.reg2 = nn.Sequential(
+                    nn.Linear(2 * 2 * 32, 500),
+                    nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
                     nn.Linear(256, 1)
@@ -144,36 +154,13 @@ class ActorCritic(nn.Module):
         # concatenate => z=  (h0 || h1) as the output from GAT
         x = torch.cat((self_in, x), 1)
 
-        # added common layer
-        x = self.CommonLayer(x)
-
-        self.bacth_x = x
-
         # get action distribution
         x = self.reg1(x)
 
         return x
     
     def value_layer(self, x1):
-        num_agents= CONST.NUM_AGENTS
-        # check if single or batch
-        if x1.shape[0] == num_agents:
-            # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
-            x = self.embeding_layer(x1)
-
-            self_in = x
-            self.graph.ndata['x'] = x
-            # run the graph convolution (attention) to get new feature x and graph
-            x = self.GAT(self.graph, self.graph.ndata['x'])
-            # concatenate => z=  (h0 || h1) as the output from GAT
-            x = torch.cat((self_in, x), 1)
-            x = self.CommonLayer(x)
-
-        # else doing batch
-        else:
-            # directly use batch result from actor (shared struture)
-            x = self.bacth_x
-
+        x = self.feature2(x1)
         x = self.reg2(x)
         return x
         
@@ -238,6 +225,9 @@ class PPO:
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
         self.policy_old = ActorCritic(env).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
+
+
+
 
 
         

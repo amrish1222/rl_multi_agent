@@ -7,6 +7,8 @@ from dgl.nn import GATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import cv2
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -51,6 +53,15 @@ def ave_heads(h, num_h):
     return res
 
 
+def single_heads(h):
+
+    res = 0.0
+    res += h[:, 0, :]
+
+
+    return res
+
+
 class GAT(nn.Module):
     def __init__(self, in_feats, heads):
         super(GAT, self).__init__()
@@ -58,12 +69,39 @@ class GAT(nn.Module):
         self.heads = heads
 
         self.conv1 = GATConv(in_feats, in_feats, heads)
+
+        self.attention_mat= None
+
+
+
+
+
+
+
         #self.conv2 = GATConv(in_feats, in_feats, heads)
 
     def forward(self, g, inputs):
         # print("Detail of convolution result for each layer:")
 
         l1 = self.conv1(g, inputs)
+
+        #attention= ave_heads(self.conv1.attenton, self.heads)
+
+        #attention = single_heads(self.conv1.attenton)
+
+        #matrix= get_att_matrix(g, attention).numpy()
+        #matrix= cv2.resize(matrix, (200,200))
+
+        #self.attention_mat= matrix
+
+
+
+
+
+
+
+
+
         # print("multiple heads before merge")
         # print((g.edata['a']))
         # print(l1)
@@ -149,11 +187,11 @@ get attention matrix (all incoming edges weights for all nodes)
 """
 
 
-def get_att_matrix(graph):
+def get_att_matrix(graph, att):
     num = graph.number_of_nodes()
     att_martix = torch.zeros((num, num))
     for i in range(num):
-        att_martix[i] = graph.edata['a'][graph.in_edges(i, 'eid')].detach().view(1, -1)[0]
+        att_martix[i] = att[graph.in_edges(i, 'eid')].detach().view(1, -1)[0]
 
     return att_martix
 

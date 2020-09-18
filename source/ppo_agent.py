@@ -77,6 +77,11 @@ class ActorCritic(nn.Module):
 
 
 
+
+
+
+
+
         self.reg1 = nn.Sequential(
                     nn.Linear(2 * 2 * 64, 500),
                     nn.ReLU(),
@@ -225,6 +230,10 @@ class PPO:
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
         self.policy_old = ActorCritic(env).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
+
+
+
+
 
 
 

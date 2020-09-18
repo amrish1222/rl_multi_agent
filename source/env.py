@@ -8,6 +8,7 @@ import random
 import cv2
 import time
 import skimage.measure
+import math
 
 from constants import CONSTANTS as K
 CONST = K()
@@ -229,6 +230,11 @@ class Env:
         bgr = np.stack((b,g,r),axis = 2)
         bgr[:,:,0] = b_n
         return bgr
+
+    def rotate(self, x, y, xo, yo, theta):  # rotate x,y around xo,yo by theta (rad)
+        xr = math.cos(theta) * (x - xo) - math.sin(theta) * (y - yo) + xo
+        yr = math.sin(theta) * (x - xo) + math.cos(theta) * (y - yo) + yo
+        return np.array([xr, yr])
     
     def render(self):
 
@@ -240,6 +246,17 @@ class Env:
         
         full_heatmap = self.heatmap_render_prep(reward_map)
         full_heatmap = cv2.resize(full_heatmap,(700,700),interpolation = cv2.INTER_AREA)
+
+        for agent, i in zip(self.agents, range(1,len(self.agents)+1)):
+            pos = agent.curPos
+            image_pos_x = np.interp(pos[0], [0, CONST.MAP_SIZE],[0,700])
+            image_pos_y = np.interp(pos[1], [0, CONST.MAP_SIZE], [0, 700])
+            #pt = self.rotate(image_pos_x, image_pos_y, 350, 350, 0)
+            pt = [image_pos_x, image_pos_y]
+            full_heatmap = cv2.putText(full_heatmap, str(i - 1), (int(pt[0])+ 7, 700 - int(pt[1]) - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+
+
+        #heatmapshow = np.rot90(heatmap, 1)
         cv2.imshow("heatMap", full_heatmap)
         
         agent_views_list = []

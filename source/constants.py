@@ -27,7 +27,9 @@ class CONSTANTS:
         
         self.GRID_SZ = self.MAX_AGENT_VEL * self.TIME_STEP * 1.0
 
-        self.MAX_STEPS = 100
+        self.MAX_STEPS = 50
+        
+        self.MINIMAP_COMPRESSION = 0.5
         
         self.MAP_SIZE = int(self.MAX_STEPS * self.GRID_SZ)
         

@@ -41,6 +41,7 @@ act = 0
 for episode in tqdm(range(NUM_EPISODES)):
     env.reset()
     env.render()
+#    break
     for step in range(LEN_EPISODES):
         # step agent
         actions = []
@@ -53,6 +54,6 @@ for episode in tqdm(range(NUM_EPISODES)):
         a = time.time()
         env.step(actions)
         b = time.time()
-#        print("step: ", round(1000*(b-a),2))
+        print("step: ", round(1000*(b-a),3))
         env.render()
         

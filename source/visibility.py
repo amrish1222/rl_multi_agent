@@ -155,7 +155,10 @@ class Visibility:
         return temp
     
     def getVsbPoly(self, pt):
-        vsbPoly = self.getVisibilityPolygon(pt)
+        try:
+            vsbPoly = self.getVisibilityPolygon(pt)
+        except:
+            vsbPoly = self.getVisibilityPolygon([pt[0]+0.05,pt[1]+0.05])
         return vsbPoly.coords
     
     def checkPtInVsbPoly(self, pt, checkPt):

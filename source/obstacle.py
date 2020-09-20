@@ -12,6 +12,8 @@ from collections import defaultdict
 import copy
 from functools import partial
 CONST = K()
+from shapely.geometry import Polygon
+import math
 
 import time
 
@@ -63,10 +65,18 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
 
-        mp, vsb = self.getObstacleMap(emptyMap, self.obstacleMR())
+#        mp, vsb = self.getObstacleMap(emptyMap, self.obstacleMR())
+#        obsMaps.append(mp)
+#        vsbs.append(vsb)
+#        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+#        vsbPolys.append(vsbPoly)
+#        numOpenCellsArr.append(np.count_nonzero(mp==0))
+ 
+        mp, vsb = self.getObstacleMap(emptyMap, self.rand_obs())
         obsMaps.append(mp)
         vsbs.append(vsb)
         vsbPoly =  self.getVisibilityPolys(vsb, mp)
+        
         vsbPolys.append(vsbPoly)
         numOpenCellsArr.append(np.count_nonzero(mp==0))
         
@@ -469,3 +479,144 @@ class Obstacle:
         obsList.append([geom, isHole])
         
         return obsList
+    
+    def rand_obs(self):
+        map_bounds = CONST.MAP_SIZE-1
+        
+        polygons = []
+        obsList = []
+        
+        # obs 1
+        
+        for i in range(2):
+            intersecting_others = True
+            fail_counter = 0
+            while(intersecting_others and fail_counter <= 50):
+                fail_counter += 1
+                geom, isHole, center, bbox = self.base_obs1(np.random.randint(5,16),0)
+                spawn_bounds = np.array([[0,0],[map_bounds, map_bounds]]) + np.array([[center[0], center[1]],[-center[0], -center[1]]])
+                
+                offset_x = center[0]%1
+                offset_y = center[1]%1
+                
+                rand_x = offset_x + int(np.random.uniform(spawn_bounds[:,0][0], spawn_bounds[:,0][1]))
+                rand_y = offset_y + int(np.random.uniform(spawn_bounds[:,1][0], spawn_bounds[:,1][1]))
+                
+#                print("obs1",rand_x, rand_y)
+                
+                geom += np.array([rand_x- center[0], rand_y - center[1]])
+                
+                cur_polygon = Polygon(geom)
+                
+                if len(polygons) == 0:
+                    polygons.append(cur_polygon)
+                    obsList.append([np.ndarray.tolist(geom), isHole])
+                    intersecting_others = False
+                else:
+                    intersecting_others = False
+                    for polygon in polygons:   
+                        if polygon.intersects(cur_polygon):
+                            intersecting_others = True
+                            break
+                    if not intersecting_others:
+                        intersecting_others = False
+                        polygons.append(cur_polygon)
+                        obsList.append([np.ndarray.tolist(geom), isHole])
+                        
+        for i in range(2):
+            intersecting_others = True
+            fail_counter = 0
+            while(intersecting_others and fail_counter <= 50):
+                fail_counter += 1
+                geom, isHole, center, bbox = self.base_obs2(np.random.randint(5,16),np.random.randint(0,5))
+                spawn_bounds = np.array([[0,0],[map_bounds, map_bounds]]) + np.array([[center[0], center[1]],[-center[0], -center[1]]])
+                
+                offset_x = center[0]%1
+                offset_y = center[1]%1
+                
+                rand_x = offset_x + int(np.random.uniform(spawn_bounds[:,0][0], spawn_bounds[:,0][1]))
+                rand_y = offset_y + int(np.random.uniform(spawn_bounds[:,1][0], spawn_bounds[:,1][1]))
+                
+#                print("obs2",rand_x, rand_y)
+
+                geom += np.array([rand_x- center[0], rand_y - center[1]])
+                
+                cur_polygon = Polygon(geom)
+                
+                if len(polygons) == 0:
+                    polygons.append(cur_polygon)
+                    obsList.append([np.ndarray.tolist(geom), isHole])
+                    intersecting_others = False
+                else:
+                    intersecting_others = False
+                    for polygon in polygons:   
+                        if polygon.intersects(cur_polygon):
+                            intersecting_others = True
+                            break
+                    if not intersecting_others:
+                        intersecting_others = False
+                        polygons.append(cur_polygon)
+                        obsList.append([np.ndarray.tolist(geom), isHole])
+        return obsList
+    
+    def bbox(self,geom):
+        
+        geom = np.asarray(geom)
+        minx = np.min(geom[:,0])
+        miny = np.min(geom[:,1])
+        maxx = np.max(geom[:,0])
+        maxy = np.max(geom[:,1])
+        
+        return [[minx, miny],[maxx,maxy]]
+    
+    def base_obs1(self, base_length, rotation = 0):
+        #box
+        s = base_length
+        isHole = False
+        geom = [[0,0],
+                [0,s],
+                [s,s],
+                [s,0]]
+        
+#        geom = [[s,s],
+#                [s,0],
+#                [0,0],
+#                [0,s]]
+        
+        bbox = self.bbox(geom)
+        
+        center = np.mean(np.array(bbox), axis = 0)
+        
+        return geom, isHole, center, bbox
+    
+    def base_obs2(self, base_length, rotation = 0):
+        #L
+        s = base_length
+        isHole = False
+        geom = [[0,0],
+                [0,2*s],
+                [s,2*s],
+                [s,s],
+                [2*s,s],
+                [2*s,0]]
+        
+        bbox = self.bbox(geom)
+        
+        center = np.mean(np.array(bbox), axis = 0)
+        
+        if not rotation == 0:
+            rot_geom = []
+            for pt in geom:
+                rot_geom.append(self.rotatePoint(center, pt, rotation * 90))
+            geom = rot_geom
+        return geom, isHole, center, bbox   
+    
+    def rotatePoint(self, centerPoint,point,angle):
+        """Rotates a point around another centerPoint. Angle is in degrees.
+            Rotation is counter-clockwise"""
+        angle = math.radians(angle)
+        temp_point = point[0]-centerPoint[0] , point[1]-centerPoint[1]
+        temp_point = ( temp_point[0]*math.cos(angle)-temp_point[1]*math.sin(angle) , temp_point[0]*math.sin(angle)+temp_point[1]*math.cos(angle))
+        temp_point = temp_point[0]+centerPoint[0] , temp_point[1]+centerPoint[1]
+        return temp_point
+        

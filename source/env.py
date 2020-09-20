@@ -107,7 +107,7 @@ class Env:
 
     
     def update_map_at_pos(self, g_pos, use_map, val):
-        updated_map = np.copy(use_map)
+        updated_map = np.array(use_map)
         for pos in g_pos:
             updated_map[pos[0],pos[1]] = val
         return updated_map
@@ -156,7 +156,7 @@ class Env:
     def step(self, action_list):
         agent_pos_list, agent_vel_list = self.step_agent(action_list)
         agent_g_pos_list = self.cartesian2grid(agent_pos_list)
-
+        
         for indx, agent_pos in enumerate(agent_pos_list):
             self.current_map_state = self.vsb.update_visibility_get_local(agent_pos, agent_g_pos_list[indx],self.current_map_state, self.vsbPoly)
         
@@ -183,8 +183,8 @@ class Env:
         self.current_map_state = self.update_map_at_pos(agent_g_pos_list, self.current_map_state, 100)
         
         self.local_heatmap_list = self.get_local_heatmap_list(self.current_map_state, agent_g_pos_list)
+        self.mini_map = self.get_mini_map(self.current_map_state, CONST.MINIMAP_COMPRESSION, agent_g_pos_list)
         
-        self.mini_map = self.get_mini_map(self.current_map_state, 0.25, agent_g_pos_list)
         
         local_reward_list, shared_reward = self.get_reward_local(self.local_heatmap_list, self.current_map_state)
         
@@ -358,7 +358,7 @@ class Env:
 
         agent_minimap_list = []
         for gpos in agent_g_pos:
-            agent_minimap = np.copy(mini_heatmap)
+            agent_minimap = np.array(mini_heatmap)
             agent_minimap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 200
             agent_minimap_list.append(agent_minimap)
         return agent_minimap_list

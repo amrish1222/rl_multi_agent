@@ -74,6 +74,12 @@ class ActorCritic(nn.Module):
 
 
 
+        #storing attention matrix:
+        self.attention_mat= None
+
+
+
+
 
 
 
@@ -153,8 +159,14 @@ class ActorCritic(nn.Module):
             batch_sz = x.shape[0] // num_agents
 
             G = dgl.batch([self.graph] * batch_sz)
+
             G.ndata['x'] = x
             x = self.GAT(G, G.ndata['x'])
+
+
+
+
+        self.attention_mat= self.GAT.attention_mat
 
         # concatenate => z=  (h0 || h1) as the output from GAT
         x = torch.cat((self_in, x), 1)
@@ -206,15 +218,21 @@ class ActorCritic(nn.Module):
     def evaluate(self, state, action):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
+
+        att= self.attention_mat.view(-1, CONST.NUM_AGENTS)
+        att_dist= Categorical(att)
+        att_entropy = att_dist.entropy()
+
         
         action_logprobs = torch.diag(dist.log_prob(action))
 #        action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
+
         
         state_value = self.value_layer(state)
         
-        return action_logprobs, torch.squeeze(state_value), dist_entropy
+        return action_logprobs, torch.squeeze(state_value), dist_entropy, att_entropy
         
 class PPO:
     def __init__(self, env):
@@ -288,9 +306,11 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
-                logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+                logprobs, state_values, dist_entropy, att_entropy = self.policy.evaluate(old_states, old_actions)
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs.view(-1,1) - old_logprobs.view(-1,1).detach())
+
+
                     
                 # Finding Surrogate Loss:
                 advantages = rewards - state_values.detach()
@@ -298,7 +318,8 @@ class PPO:
     #            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
-                loss = -torch.min(surr1, surr2).mean() + 0.5*self.MseLoss(state_values, rewards) - 0.01*dist_entropy.mean()
+                loss = -torch.min(surr1, surr2).mean() + 0.5*self.MseLoss(state_values, rewards) - 0.01*dist_entropy.mean() + 0.01 * att_entropy.mean()
+
                 
                 # take gradient step
                 self.optimizer.zero_grad()
@@ -307,7 +328,8 @@ class PPO:
         
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
-        return advantages.mean().item()
+
+        return att_entropy.mean().item()
         
     def formatInput(self, states):
         out = []
@@ -322,7 +344,7 @@ class PPO:
     
     def summaryWriter_addMetrics(self, episode, loss, rewardHistory, agent_RwdDict, lenEpisode):
         if loss:
-            self.sw.add_scalar('6.Loss', loss, episode)
+            self.sw.add_scalar('6.att_entropy', loss, episode)
         self.sw.add_scalar('3.Reward', rewardHistory[-1], episode)
         self.sw.add_scalar('5.Episode Length', lenEpisode, episode)
         

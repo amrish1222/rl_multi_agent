@@ -369,8 +369,10 @@ class Env:
         mini_heatmap = np.where(mini_decay < 0, mini_decay, mini_obs)
 
 
+        """
         for gpos in agent_g_pos:
             mini_heatmap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 100
+        """
         
 
         agent_minimap_list = []

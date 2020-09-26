@@ -3,7 +3,7 @@ import numpy as np
 import networkx as nx
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from dgl.nn import GATConv
+from GAT_MOD import GATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -85,14 +85,14 @@ class GAT(nn.Module):
 
         l1 = self.conv1(g, inputs)
 
-        #attention= ave_heads(self.conv1.attenton, self.heads)
+        attention= ave_heads(self.conv1.attenton, self.heads)
 
         #attention = single_heads(self.conv1.attenton)
 
         #matrix= get_att_matrix(g, attention).numpy()
         #matrix= cv2.resize(matrix, (200,200))
 
-        #self.attention_mat= matrix
+        self.attention_mat= attention
 
 
 

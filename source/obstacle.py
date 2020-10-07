@@ -37,12 +37,12 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
 #        
-#        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
-#        obsMaps.append(mp)
-#        vsbs.append(vsb)
-#        vsbPoly =  self.getVisibilityPolys(vsb, mp)
-#        vsbPolys.append(vsbPoly)
-#        numOpenCellsArr.append(np.count_nonzero(mp==0))
+        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
+        obsMaps.append(mp)
+        vsbs.append(vsb)
+        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+        vsbPolys.append(vsbPoly)
+        numOpenCellsArr.append(np.count_nonzero(mp==0))
 #        
 #        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle3())
 #        obsMaps.append(mp)
@@ -72,13 +72,12 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
  
-        mp, vsb = self.getObstacleMap(emptyMap, self.rand_obs())
-        obsMaps.append(mp)
-        vsbs.append(vsb)
-        vsbPoly =  self.getVisibilityPolys(vsb, mp)
-        
-        vsbPolys.append(vsbPoly)
-        numOpenCellsArr.append(np.count_nonzero(mp==0))
+#        mp, vsb = self.getObstacleMap(emptyMap, self.rand_obs())
+#        obsMaps.append(mp)
+#        vsbs.append(vsb)
+#        vsbPoly =  self.getVisibilityPolys(vsb, mp)
+#        vsbPolys.append(vsbPoly)
+#        numOpenCellsArr.append(np.count_nonzero(mp==0))
         
         b = time.time()
         print("create vsb Polys:", round(1000*(b-a), 3))
@@ -116,6 +115,46 @@ class Obstacle:
                 polys[(pt[0],pt[1])] = vsb.getVsbPoly(pt)
             
         return polys
+    
+    def getVisibilitySets(self, emptyMap):
+        obsMaps, vsbs, vsbPolys, numOpenCellsArr = self.getAllObs_vsbs(emptyMap)
+        obsMap = obsMaps[0]
+        vsb = vsbs[0]
+        polys = defaultdict(partial(np.ndarray, 0))
+        for pt in CONST.GRID_CENTER_PTS:
+            if not obsMap[int(pt[0]),int(pt[1])] == 150:
+                polys[(pt[0],pt[1])] = vsb.getVsbPoly(pt)
+        
+        free_map = np.argwhere(obsMap != 150)
+        
+        visibility_sets = defaultdict(list)
+        for pt in polys:
+            points = CONST.GRID_CENTER_PTS
+            img = np.zeros_like(emptyMap, dtype = bool)
+            p = Path(polys[pt])
+            grid = p.contains_points(points)
+            mask = grid.reshape(CONST.MAP_SIZE,CONST.MAP_SIZE)
+            
+            g = (int(pt[0]), int(pt[1]))
+            r = int((CONST.LOCAL_SZ -1) /2)
+            lx = int(max(0, g[1] - r))
+            hx = int(min(CONST.MAP_SIZE, r + g[1] + 1))
+            ly = int(max(0, g[0] - r))
+            hy = int(min(CONST.MAP_SIZE, r + g[0] + 1))
+            tempMask = np.zeros_like(mask).astype(bool)
+            tempMask[lx: hx , ly : hy] = True
+            
+            img = np.logical_and(mask , tempMask)
+            
+            img = img.T
+            
+            visibility_set_at_pt = np.argwhere(img)
+            temp_set = visibility_set_at_pt.T
+            visibility_sets[g] = list(zip(temp_set[0], temp_set[1]))
+        
+        return len(free_map), visibility_sets
+    
+
     
     def getObstacles(self):
         obstacle = self.obstacle1()
@@ -488,7 +527,7 @@ class Obstacle:
         
         # obs 1
         
-        for i in range(2):
+        for i in range(4):
             intersecting_others = True
             fail_counter = 0
             while(intersecting_others and fail_counter <= 50):

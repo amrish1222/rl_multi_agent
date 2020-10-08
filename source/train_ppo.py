@@ -32,10 +32,10 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-    if keyboard.is_pressed('['):
-        act = 1
-    elif keyboard.is_pressed(']'):
-        act = 2
+#    if keyboard.is_pressed('['):
+#        act = 1
+#    elif keyboard.is_pressed(']'):
+#        act = 2
     return act
 
 from obstacle import Obstacle
@@ -64,7 +64,7 @@ dispFlag = False
 #curState = rlAgent.formatInput(curRawState)
 #rlAgent.summaryWriter_showNetwork(curState[0])
 
-keyPress = 1
+keyPress = 0
 timestep = 0
 loss = None
 
@@ -92,7 +92,7 @@ for episode in tqdm(range(NUM_EPISODES)):
             env.render()
         
         # TODO save video
-        if episode%500 in range(10,15) and step%4 == 0:
+        if episode%500 in range(1,6) and step%4 == 0:
             env.save2Vid(episode, step)
 
         # Get agent actions

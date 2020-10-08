@@ -406,6 +406,15 @@ class Env:
         full_heatmap = cv2.resize(full_heatmap, (700, 700), interpolation=cv2.INTER_AREA)
         display_string = "Episode: " + str(episode) + " Step: " + str(step)
         full_heatmap = cv2.putText(full_heatmap, display_string, (20,20), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (255,255,255) , 2, cv2.LINE_AA) 
+        
+        for agent, i in zip(self.agents, range(1,len(self.agents)+1)):
+            pos = agent.curPos
+            image_pos_x = np.interp(pos[0], [0, CONST.MAP_SIZE],[0,700])
+            image_pos_y = np.interp(pos[1], [0, CONST.MAP_SIZE], [0, 700])
+            #pt = self.rotate(image_pos_x, image_pos_y, 350, 350, 0)
+            pt = [image_pos_x, image_pos_y]
+            full_heatmap = cv2.putText(full_heatmap, str(i - 1), (int(pt[0])+ 7, 700 - int(pt[1]) - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        
         self.out.write(full_heatmap.astype('uint8'))
 
         

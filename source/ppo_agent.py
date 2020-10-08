@@ -19,13 +19,12 @@ CONST = CONSTANTS()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Memory:
-    def __init__(self, num_agents):
+    def __init__(self):
         self.actions = []
         self.states = []
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
-        self.num_agents = num_agents
     
     def clear_memory(self):
         del self.actions[:]
@@ -35,9 +34,10 @@ class Memory:
         del self.is_terminals[:]
 
 class ActorCritic(nn.Module):
-    def __init__(self, env):
+    def __init__(self, env, init_num_agents):
         super(ActorCritic, self).__init__()
-
+        
+        self.num_agents = init_num_agents
 
         # actor
 #        self.feature1 = nn.Sequential(
@@ -67,7 +67,7 @@ class ActorCritic(nn.Module):
         # added embedding layer (shared)
         self.embeding_layer = EMG.embedding_layer()
         # added fully connected graph generator
-        self.graph = EMG.FC_graph(CONST.NUM_AGENTS)
+        self.graph = EMG.FC_graph(init_num_agents)
         # added GAT network: with #attention head = 3
         self.GAT = EMG.GAT(2 * 2 * 32, 3)
 
@@ -141,11 +141,15 @@ class ActorCritic(nn.Module):
 
         self.train()
         
+    def change_num_agents(self, num_agents):
+        self.num_agents = num_agents
+        self.graph = EMG.FC_graph(num_agents)
+        
     def action_layer(self, x1):
         # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
         x = self.embeding_layer(x1)
 
-        num_agents= CONST.NUM_AGENTS
+        num_agents= self.num_agents
 
         self_in = x
 
@@ -219,7 +223,7 @@ class ActorCritic(nn.Module):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
 
-        att= self.attention_mat.view(-1, CONST.NUM_AGENTS)
+        att= self.attention_mat.view(-1, self.num_agents)
         att_dist= Categorical(att)
         att_entropy = att_dist.entropy()
 
@@ -235,18 +239,20 @@ class ActorCritic(nn.Module):
         return action_logprobs, torch.squeeze(state_value), dist_entropy, att_entropy
         
 class PPO:
-    def __init__(self, env):
+    def __init__(self, env, init_num_agents):
         self.lr = 0.000002
         self.betas = (0.9, 0.999)
         self.gamma = 0.99
         self.eps_clip = 0.2
         self.K_epochs = 4
         
+        self.num_agents = init_num_agents
+        
         torch.manual_seed(2)
         
-        self.policy = ActorCritic(env).to(device)
+        self.policy = ActorCritic(env, self.num_agents).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
-        self.policy_old = ActorCritic(env).to(device)
+        self.policy_old = ActorCritic(env, self.num_agents).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
 
@@ -262,11 +268,16 @@ class PPO:
         self.sw = SummaryWriter(log_dir=f"tf_log/demo_CNN{random.randint(0, 1000)}")
         print(f"Log Dir: {self.sw.log_dir}")
     
+    def change_num_agents(self, num_agents):
+        self.num_agents = num_agents
+        self.policy.change_num_agents(num_agents)
+        self.policy_old.change_num_agents(num_agents)
+    
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
         all_rewards = []
-        discounted_reward_list = [0]* int(CONST.NUM_AGENTS)
-        agent_index_list = list(range(CONST.NUM_AGENTS)) * int(len(memory.rewards)/ CONST.NUM_AGENTS)
+        discounted_reward_list = [0]* int(self.num_agents)
+        agent_index_list = list(range(self.num_agents)) * int(len(memory.rewards)/ self.num_agents)
         for reward, is_terminal, agent_index in zip(reversed(memory.rewards), reversed(memory.is_terminals), reversed(agent_index_list)):
             if is_terminal:
                 discounted_reward_list[agent_index] = 0
@@ -283,7 +294,7 @@ class PPO:
         all_rewards = torch.tensor(all_rewards).to(device)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
-        minibatch_sz = CONST.NUM_AGENTS * CONST.LEN_EPISODE
+        minibatch_sz = self.num_agents * CONST.LEN_EPISODE
             
         mem_sz = len(memory.states)
         # Optimize policy for K epochs:

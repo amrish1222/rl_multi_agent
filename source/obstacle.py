@@ -17,8 +17,9 @@ import time
 from visibility import Visibility
 
 class Obstacle:
-    def __init__(self):
-        pass
+    def __init__(self, emptyMap):
+        self.emptyMap = emptyMap
+        self.all_obs_info = self.getAllObs_vsbs(self.emptyMap)
     
     def getAllObs_vsbs(self, emptyMap):
         obsMaps = []

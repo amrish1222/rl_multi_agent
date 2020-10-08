@@ -32,22 +32,26 @@ def getKeyPressOld(act):
     return act
 
 def getKeyPress(act):
-#    if keyboard.is_pressed('['):
-#        act = 1
-#    elif keyboard.is_pressed(']'):
-#        act = 2
+    if keyboard.is_pressed('['):
+        act = 1
+    elif keyboard.is_pressed(']'):
+        act = 2
     return act
 
+from obstacle import Obstacle
+obsMaps = Obstacle(np.zeros((CONST.MAP_SIZE, CONST.MAP_SIZE)))
 
-env = Env()
+cur_num_agents = CONST.MAX_NUM_AGENTS
 
-memory = Memory(CONST.NUM_AGENTS)
-rlAgent = PPO(env)
+env = Env(obsMaps, cur_num_agents)
+
+memory = Memory()
+rlAgent = PPO(env, cur_num_agents)
 
 #rlAgent.loadModel("checkpoints/ActorCritic_10000.pt", 1)
 
 NUM_EPISODES = 30000
-LEN_EPISODES = 1000
+LEN_EPISODES = CONST.LEN_EPISODE
 UPDATE_TIMESTEP = 1000
 curState = []
 newState= []
@@ -60,12 +64,14 @@ dispFlag = False
 #curState = rlAgent.formatInput(curRawState)
 #rlAgent.summaryWriter_showNetwork(curState[0])
 
-keyPress = 0
+keyPress = 1
 timestep = 0
 loss = None
 
 for episode in tqdm(range(NUM_EPISODES)):
-    curRawState = env.reset()
+    cur_num_agents = np.random.randint(2, CONST.MAX_NUM_AGENTS + 1)
+    rlAgent.change_num_agents(cur_num_agents)
+    curRawState = env.reset(cur_num_agents)
     
     # generate state for each agent
     curState = rlAgent.formatInput(curRawState)
@@ -74,7 +80,7 @@ for episode in tqdm(range(NUM_EPISODES)):
     epidoseLoss = 0
     episodeNewVisited = 0
     episodePenalty = 0
-    agent_episode_reward = [0]* CONST.NUM_AGENTS
+    agent_episode_reward = [0]* cur_num_agents
     
     for step in range(LEN_EPISODES):
         timestep += 1
@@ -88,26 +94,19 @@ for episode in tqdm(range(NUM_EPISODES)):
         # TODO save video
         if episode%500 in range(10,15) and step%4 == 0:
             env.save2Vid(episode, step)
-#        a = t()
+
         # Get agent actions
-# =============================================================================
-#         for i in range(CONST.NUM_AGENTS):
-#             action = rlAgent.policy.act(curState[i], memory,i)
-#             aActions.append(action)
-# =============================================================================
-        aActions = rlAgent.policy_old.act(curState, memory, CONST.NUM_AGENTS)
-#        b = t()
-#        print("step: ", round(b-a,2))
+        aActions = rlAgent.policy_old.act(curState, memory, cur_num_agents)
+
         
         # do actions
-        
         newRawState  = env.step(aActions)
 #        newRawState  = env.step([0])
         agent_pos_list, current_map_state, local_heatmap_list, minimap_list, local_reward_list, shared_reward, done = newRawState
         if step == LEN_EPISODES -1:
             done = True
         
-        for agent_index in range(CONST.NUM_AGENTS):
+        for agent_index in range(cur_num_agents):
             if CONST.isSharedReward:
                 memory.rewards.append(shared_reward)
             else:
@@ -125,7 +124,7 @@ for episode in tqdm(range(NUM_EPISODES)):
         
         # record history
         
-        for i in range(CONST.NUM_AGENTS):
+        for i in range(cur_num_agents):
             if CONST.isSharedReward:
                 agent_episode_reward[i] += shared_reward
             else:
@@ -143,7 +142,7 @@ for episode in tqdm(range(NUM_EPISODES)):
     # Record history        
     reward_history.append(episodeReward)
     
-    for i in range(CONST.NUM_AGENTS):
+    for i in range(cur_num_agents):
         agent_history_dict[i].append((agent_episode_reward[i]))
     
     

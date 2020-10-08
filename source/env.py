@@ -13,21 +13,23 @@ import math
 from constants import CONSTANTS as K
 CONST = K()
 from agent import Agent
-from obstacle import Obstacle
-obsMap = Obstacle()
 
 np.set_printoptions(precision=3, suppress=True)
 class Env:
-    def __init__(self):
+    def __init__(self, obsMaps, num_agents):
         self.timeStep = CONST.TIME_STEP
         # getting obstacle maps and visibility maps
         self.cap= 400
         
-        self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.initObsMaps_Vsbs()
+        self.obsMaps = obsMaps
+        
+        self.num_agents = num_agents
+        
+        self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.obsMaps.all_obs_info
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
 
         # initialize environment with obstacles and agents
-        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(CONST.NUM_AGENTS, self.obstacle_map)
+        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(self.num_agents, self.obstacle_map)
         # modified: decay rate:
         self.decay= 1
         # modified: cap the upperbound of penalty
@@ -193,13 +195,13 @@ class Env:
         
         return agent_pos_list, self.current_map_state, self.local_heatmap_list, self.mini_map, local_reward_list, shared_reward, done
     
-    def reset(self):
+    def reset(self, num_agents):
         
         # need to update initial state for reset function
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
-        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(CONST.NUM_AGENTS, self.obstacle_map)
+        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(num_agents, self.obstacle_map)
 
-        action_list = [0 for _ in range(CONST.NUM_AGENTS)]
+        action_list = [0 for _ in range(self.num_agents)]
         state = self.step(action_list)
         
         return state
@@ -216,6 +218,10 @@ class Env:
         heatmapshow = heatmapshow.astype(np.uint8)
 
         heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
+        
+        white = [255,255,255]
+        
+        heatmapshow = cv2.copyMakeBorder(heatmapshow,1,1,1,1,cv2.BORDER_CONSTANT,value=white)
         
         return heatmapshow
     
@@ -274,6 +280,9 @@ class Env:
             
             agent_views_list.append(temp)
         
+        while len(agent_views_list) < CONST.MAX_NUM_AGENTS:
+            agent_views_list.append(np.zeros_like(temp))
+        
         rows = []
         for j in range(CONST.RENDER_ROWS):
             rows.append(np.hstack((agent_views_list[j*CONST.RENDER_COLUMNS : (j+1) * CONST.RENDER_COLUMNS])))
@@ -291,6 +300,9 @@ class Env:
             temp = self.heatmap_render_prep(minimap)
             
             agent_views_list.append(temp)
+        
+        while len(agent_views_list) < CONST.MAX_NUM_AGENTS:
+            agent_views_list.append(np.zeros_like(temp))
         
         rows2 = []
         for j in range(CONST.RENDER_ROWS):

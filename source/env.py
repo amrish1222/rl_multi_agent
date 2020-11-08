@@ -8,25 +8,28 @@ import random
 import cv2
 import time
 import skimage.measure
+import math
 
 from constants import CONSTANTS as K
 CONST = K()
 from agent import Agent
-from obstacle import Obstacle
-obsMap = Obstacle()
 
 np.set_printoptions(precision=3, suppress=True)
 class Env:
-    def __init__(self):
+    def __init__(self, obsMaps, num_agents):
         self.timeStep = CONST.TIME_STEP
         # getting obstacle maps and visibility maps
         self.cap= 400
         
-        self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.initObsMaps_Vsbs()
+        self.obsMaps = obsMaps
+        
+        self.num_agents = num_agents
+        
+        self.obsMaps, self.vsbs, self.vsbPolys, self.numOpenCellsArr = self.obsMaps.all_obs_info
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
 
         # initialize environment with obstacles and agents
-        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(CONST.NUM_AGENTS, self.obstacle_map)
+        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(self.num_agents, self.obstacle_map)
         # modified: decay rate:
         self.decay= 1
         # modified: cap the upperbound of penalty
@@ -192,13 +195,13 @@ class Env:
         
         return agent_pos_list, self.current_map_state, self.local_heatmap_list, self.mini_map, local_reward_list, shared_reward, done
     
-    def reset(self):
+    def reset(self, num_agents):
         
         # need to update initial state for reset function
         self.obstacle_map , self.vsb, self.vsbPoly, self.mapId, self.numOpenCells = self.setRandMap_vsb()
-        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(CONST.NUM_AGENTS, self.obstacle_map)
+        self.obstacle_viewed, self.current_map_state, self.agents, self.agent_local_view_list = self.init_env(num_agents, self.obstacle_map)
 
-        action_list = [0 for _ in range(CONST.NUM_AGENTS)]
+        action_list = [0 for _ in range(self.num_agents)]
         state = self.step(action_list)
         
         return state
@@ -216,6 +219,10 @@ class Env:
 
         heatmapshow = cv2.applyColorMap(heatmapshow, cv2.COLORMAP_JET)
         
+        white = [255,255,255]
+        
+        heatmapshow = cv2.copyMakeBorder(heatmapshow,1,1,1,1,cv2.BORDER_CONSTANT,value=white)
+        
         return heatmapshow
     
     def exploration_render_prep(self, explr_map):
@@ -229,6 +236,11 @@ class Env:
         bgr = np.stack((b,g,r),axis = 2)
         bgr[:,:,0] = b_n
         return bgr
+
+    def rotate(self, x, y, xo, yo, theta):  # rotate x,y around xo,yo by theta (rad)
+        xr = math.cos(theta) * (x - xo) - math.sin(theta) * (y - yo) + xo
+        yr = math.sin(theta) * (x - xo) + math.cos(theta) * (y - yo) + yo
+        return np.array([xr, yr])
     
     def render(self):
 
@@ -240,6 +252,17 @@ class Env:
         
         full_heatmap = self.heatmap_render_prep(reward_map)
         full_heatmap = cv2.resize(full_heatmap,(700,700),interpolation = cv2.INTER_AREA)
+
+        for agent, i in zip(self.agents, range(1,len(self.agents)+1)):
+            pos = agent.curPos
+            image_pos_x = np.interp(pos[0], [0, CONST.MAP_SIZE],[0,700])
+            image_pos_y = np.interp(pos[1], [0, CONST.MAP_SIZE], [0, 700])
+            #pt = self.rotate(image_pos_x, image_pos_y, 350, 350, 0)
+            pt = [image_pos_x, image_pos_y]
+            full_heatmap = cv2.putText(full_heatmap, str(i - 1), (int(pt[0])+ 7, 700 - int(pt[1]) - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+
+
+        #heatmapshow = np.rot90(heatmap, 1)
         cv2.imshow("heatMap", full_heatmap)
         
         agent_views_list = []
@@ -256,6 +279,9 @@ class Env:
             temp = self.heatmap_render_prep(local_view)
             
             agent_views_list.append(temp)
+        
+        while len(agent_views_list) < CONST.MAX_NUM_AGENTS:
+            agent_views_list.append(np.zeros_like(temp))
         
         rows = []
         for j in range(CONST.RENDER_ROWS):
@@ -274,6 +300,9 @@ class Env:
             temp = self.heatmap_render_prep(minimap)
             
             agent_views_list.append(temp)
+        
+        while len(agent_views_list) < CONST.MAX_NUM_AGENTS:
+            agent_views_list.append(np.zeros_like(temp))
         
         rows2 = []
         for j in range(CONST.RENDER_ROWS):
@@ -352,8 +381,10 @@ class Env:
         mini_heatmap = np.where(mini_decay < 0, mini_decay, mini_obs)
 
 
+        """
         for gpos in agent_g_pos:
             mini_heatmap[int(gpos[0] * ratio), int(gpos[1] * ratio)] = 100
+        """
         
 
         agent_minimap_list = []
@@ -375,6 +406,15 @@ class Env:
         full_heatmap = cv2.resize(full_heatmap, (700, 700), interpolation=cv2.INTER_AREA)
         display_string = "Episode: " + str(episode) + " Step: " + str(step)
         full_heatmap = cv2.putText(full_heatmap, display_string, (20,20), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (255,255,255) , 2, cv2.LINE_AA) 
+        
+        for agent, i in zip(self.agents, range(1,len(self.agents)+1)):
+            pos = agent.curPos
+            image_pos_x = np.interp(pos[0], [0, CONST.MAP_SIZE],[0,700])
+            image_pos_y = np.interp(pos[1], [0, CONST.MAP_SIZE], [0, 700])
+            #pt = self.rotate(image_pos_x, image_pos_y, 350, 350, 0)
+            pt = [image_pos_x, image_pos_y]
+            full_heatmap = cv2.putText(full_heatmap, str(i - 1), (int(pt[0])+ 7, 700 - int(pt[1]) - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        
         self.out.write(full_heatmap.astype('uint8'))
 
         

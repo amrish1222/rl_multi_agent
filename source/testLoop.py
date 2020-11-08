@@ -9,6 +9,7 @@ import numpy as np
 from env import Env
 from tqdm import tqdm
 import cv2
+import matplotlib.pyplot as plt
 from collections import defaultdict
 from time import time as t
 
@@ -97,6 +98,15 @@ for episode in tqdm(range(NUM_EPISODES)):
             env.render()
 
 
+
+            # attention matrix
+
+            plt.close()
+
+
+
+
+
         env.save2Vid(episode, step)
 
 
@@ -125,6 +135,34 @@ for episode in tqdm(range(NUM_EPISODES)):
 
         # set current state for next step
         curState = newState
+
+
+        #display attention matrix:
+        mat= rlAgent.policy.GAT.attention_mat
+
+        mat= mat.view(-1, CONST.NUM_AGENTS)
+
+
+        #attention matrix
+
+
+
+        plt.matshow(mat, cmap='seismic')
+        for (i, j), z in np.ndenumerate(mat):
+            plt.text(j, i, '{:0.2f}'.format(z), ha='center', va='center',
+                    bbox=dict(boxstyle='round', facecolor='white', edgecolor='0.3'))
+                    
+
+        plt.show(False)
+        
+        
+
+
+
+
+
+
+
 
 
 

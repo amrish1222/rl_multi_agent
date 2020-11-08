@@ -10,18 +10,21 @@ import random
 from collections import defaultdict
 import itertools
 from constants import CONSTANTS
+import embedding_graph as EMG
+import dgl
+
+
 CONST = CONSTANTS()
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 class Memory:
-    def __init__(self, num_agents):
+    def __init__(self):
         self.actions = []
         self.states = []
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
-        self.num_agents = num_agents
     
     def clear_memory(self):
         del self.actions[:]
@@ -31,8 +34,10 @@ class Memory:
         del self.is_terminals[:]
 
 class ActorCritic(nn.Module):
-    def __init__(self, env):
+    def __init__(self, env, init_num_agents):
         super(ActorCritic, self).__init__()
+        
+        self.num_agents = init_num_agents
 
         # actor
 #        self.feature1 = nn.Sequential(
@@ -58,18 +63,33 @@ class ActorCritic(nn.Module):
 #                    nn.Linear(256, len(env.get_action_space())),
 #                    nn.Softmax(dim=-1)
 #                )
-        
-        self.feature1 = nn.Sequential(
-                    nn.Conv2d(2,16,(8,8),4,1),
-                    nn.ReLU(),
-                    nn.Conv2d(16,32,(4,4),2,1),
-                    nn.ReLU(),
-                    nn.Conv2d(32,32,(3,3),1,1),
-                    nn.ReLU(),
-                    nn.Flatten()
-                    )
+
+        # added embedding layer (shared)
+        self.embeding_layer = EMG.embedding_layer()
+        # added fully connected graph generator
+        self.graph = EMG.FC_graph(init_num_agents)
+        # added GAT network: with #attention head = 3
+        self.GAT = EMG.GAT(2 * 2 * 32, 3)
+
+
+
+
+        #storing attention matrix:
+        self.attention_mat= None
+
+
+
+
+
+
+
+
+
+
+
+
         self.reg1 = nn.Sequential(
-                    nn.Linear(2*2*32, 500),
+                    nn.Linear(2 * 2 * 64, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -100,18 +120,19 @@ class ActorCritic(nn.Module):
 #                    nn.ReLU(),
 #                    nn.Linear(256, 1)
 #                )
-        
+
         self.feature2 = nn.Sequential(
-                    nn.Conv2d(2,16,(8,8),4,1),
-                    nn.ReLU(),
-                    nn.Conv2d(16,32,(4,4),2,1),
-                    nn.ReLU(),
-                    nn.Conv2d(32,32,(3,3),1,1),
-                    nn.ReLU(),
-                    nn.Flatten()
-                    )
+            nn.Conv2d(2, 16, (8, 8), 4, 1),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, (4, 4), 2, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, (3, 3), 1, 1),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+
         self.reg2 = nn.Sequential(
-                    nn.Linear(2*2*32, 500),
+                    nn.Linear(2 * 2 * 32, 500),
                     nn.ReLU(),
                     nn.Linear(500, 256),
                     nn.ReLU(),
@@ -120,15 +141,47 @@ class ActorCritic(nn.Module):
 
         self.train()
         
+    def change_num_agents(self, num_agents):
+        self.num_agents = num_agents
+        self.graph = EMG.FC_graph(num_agents)
+        
     def action_layer(self, x1):
-        x = self.feature1(x1)
-#        x = torch.cat((x,x2), dim = 1)
+        # Generating embedding vectors: Convert input [6,1, 25,25] to embedding [6, 500] (N, dim) 1-D embedding vectors for each agents
+        x = self.embeding_layer(x1)
+
+        num_agents= self.num_agents
+
+        self_in = x
+
+        # check if single or batch
+        if x.shape[0] == num_agents:
+            self.graph.ndata['x'] = x
+            # run the graph convolution (attention) to get new feature x and graph
+            x = self.GAT(self.graph, self.graph.ndata['x'])
+        # else doing batch
+        else:
+            batch_sz = x.shape[0] // num_agents
+
+            G = dgl.batch([self.graph] * batch_sz)
+
+            G.ndata['x'] = x
+            x = self.GAT(G, G.ndata['x'])
+
+
+
+
+        self.attention_mat= self.GAT.attention_mat
+
+        # concatenate => z=  (h0 || h1) as the output from GAT
+        x = torch.cat((self_in, x), 1)
+
+        # get action distribution
         x = self.reg1(x)
+
         return x
     
     def value_layer(self, x1):
         x = self.feature2(x1)
-#        x = torch.cat((x,x2), dim = 1)
         x = self.reg2(x)
         return x
         
@@ -169,40 +222,62 @@ class ActorCritic(nn.Module):
     def evaluate(self, state, action):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
+
+        att= self.attention_mat.view(-1, self.num_agents)
+        att_dist= Categorical(att)
+        att_entropy = att_dist.entropy()
+
         
         action_logprobs = torch.diag(dist.log_prob(action))
 #        action_logprobs = dist.log_prob(action)
         action_logprobs = action_logprobs.view(-1,1)
         dist_entropy = dist.entropy()
+
         
         state_value = self.value_layer(state)
         
-        return action_logprobs, torch.squeeze(state_value), dist_entropy
+        return action_logprobs, torch.squeeze(state_value), dist_entropy, att_entropy
         
 class PPO:
-    def __init__(self, env):
+    def __init__(self, env, init_num_agents):
         self.lr = 0.000002
         self.betas = (0.9, 0.999)
         self.gamma = 0.99
         self.eps_clip = 0.2
         self.K_epochs = 4
         
+        self.num_agents = init_num_agents
+        
         torch.manual_seed(2)
         
-        self.policy = ActorCritic(env).to(device)
+        self.policy = ActorCritic(env, self.num_agents).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=self.betas)
-        self.policy_old = ActorCritic(env).to(device)
+        self.policy_old = ActorCritic(env, self.num_agents).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
+
+
+
+
+
+
+
+
+
         
         self.MseLoss = nn.MSELoss()
         self.sw = SummaryWriter(log_dir=f"tf_log/demo_CNN{random.randint(0, 1000)}")
         print(f"Log Dir: {self.sw.log_dir}")
     
+    def change_num_agents(self, num_agents):
+        self.num_agents = num_agents
+        self.policy.change_num_agents(num_agents)
+        self.policy_old.change_num_agents(num_agents)
+    
     def update(self, memory):   
         # Monte Carlo estimate of state rewards:
         all_rewards = []
-        discounted_reward_list = [0]* int(CONST.NUM_AGENTS)
-        agent_index_list = list(range(CONST.NUM_AGENTS)) * int(len(memory.rewards)/ CONST.NUM_AGENTS)
+        discounted_reward_list = [0]* int(self.num_agents)
+        agent_index_list = list(range(self.num_agents)) * int(len(memory.rewards)/ self.num_agents)
         for reward, is_terminal, agent_index in zip(reversed(memory.rewards), reversed(memory.is_terminals), reversed(agent_index_list)):
             if is_terminal:
                 discounted_reward_list[agent_index] = 0
@@ -219,7 +294,7 @@ class PPO:
         all_rewards = torch.tensor(all_rewards).to(device)
         all_rewards = (all_rewards - all_rewards.mean()) / (all_rewards.std() + 1e-5)
         
-        minibatch_sz = CONST.NUM_AGENTS * CONST.LEN_EPISODE
+        minibatch_sz = self.num_agents * CONST.LEN_EPISODE
             
         mem_sz = len(memory.states)
         # Optimize policy for K epochs:
@@ -242,9 +317,11 @@ class PPO:
                 prev = i
                 
                 # Evaluating old actions and values :
-                logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+                logprobs, state_values, dist_entropy, att_entropy = self.policy.evaluate(old_states, old_actions)
                 # Finding the ratio (pi_theta / pi_theta__old):
                 ratios = torch.exp(logprobs.view(-1,1) - old_logprobs.view(-1,1).detach())
+
+
                     
                 # Finding Surrogate Loss:
                 advantages = rewards - state_values.detach()
@@ -252,7 +329,8 @@ class PPO:
     #            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
-                loss = -torch.min(surr1, surr2).mean() + 0.5*self.MseLoss(state_values, rewards) - 0.01*dist_entropy.mean()
+                loss = -torch.min(surr1, surr2).mean() + 0.5*self.MseLoss(state_values, rewards) - 0.01*dist_entropy.mean() + 0.01 * att_entropy.mean()
+
                 
                 # take gradient step
                 self.optimizer.zero_grad()
@@ -261,7 +339,8 @@ class PPO:
         
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
-        return advantages.mean().item()
+
+        return att_entropy.mean().item()
         
     def formatInput(self, states):
         out = []
@@ -276,7 +355,7 @@ class PPO:
     
     def summaryWriter_addMetrics(self, episode, loss, rewardHistory, agent_RwdDict, lenEpisode):
         if loss:
-            self.sw.add_scalar('6.Loss', loss, episode)
+            self.sw.add_scalar('6.att_entropy', loss, episode)
         self.sw.add_scalar('3.Reward', rewardHistory[-1], episode)
         self.sw.add_scalar('5.Episode Length', lenEpisode, episode)
         

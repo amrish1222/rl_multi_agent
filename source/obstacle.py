@@ -17,8 +17,9 @@ import time
 from visibility import Visibility
 
 class Obstacle:
-    def __init__(self):
-        pass
+    def __init__(self, emptyMap):
+        self.emptyMap = emptyMap
+        self.all_obs_info = self.getAllObs_vsbs(self.emptyMap)
     
     def getAllObs_vsbs(self, emptyMap):
         obsMaps = []
@@ -55,7 +56,7 @@ class Obstacle:
 #        vsbPolys.append(vsbPoly)
 #        numOpenCellsArr.append(np.count_nonzero(mp==0))
         
-        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle_4R())
+        mp, vsb = self.getObstacleMap(emptyMap, self.obstacle2())
         obsMaps.append(mp)
         vsbs.append(vsb)
         vsbPoly =  self.getVisibilityPolys(vsb, mp)
